@@ -4,7 +4,14 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 
 ## Project Overview
 
-<!-- TODO: Add project description, purpose, and key information -->
+**WormsBatsAndFlies** is an LLM orchestration system inspired by the "Worms, Bats and Flies" analogy from Neal Stephenson's *Anathem*. Just as different sensory modalities in the brain (seeing, hearing, feeling) somehow communicate despite having no common language, this system creates a "neural network" where each neuron is a full LLM with its own perspective (system prompt), and they develop emergent communication patterns through repeated interaction.
+
+**Key Concepts:**
+- **Brain**: A directed graph of interconnected LLM neurons
+- **Neuron**: An individual LLM with identity, memory, system prompt, and assigned model
+- **Firing**: When a neuron processes queued inputs and emits output to connected neurons
+- **Memory**: Accumulated self-updates that persist across firings
+- **Step**: A synchronized execution cycle where all ready neurons fire
 
 **Repository:** WormsBatsAndFlies
 
@@ -15,25 +22,56 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [x] Initial repository setup
 - [x] README.md created
 - [x] CLAUDE.md documentation established
+- [x] DESIGN.md comprehensive design document with:
+  - Philosophical foundation (Anathem reference)
+  - Data models (Brain, Neuron, Connection, User, Execution states)
+  - API specification (REST + WebSocket)
+  - OpenAI-compatible endpoint specification
+  - Interface wireframes (3D editor, chat, live view)
+  - Tech stack decisions
+  - File structure planning
+  - Neuron prompt template
+  - Security considerations
 
 ### Not Yet Implemented
 
-<!-- Add planned features and improvements here as they are identified -->
+- [ ] Project scaffolding (package.json, wrangler.toml, tsconfig)
+- [ ] TypeScript type definitions
+- [ ] Cloudflare Worker API handlers
+- [ ] Durable Object for brain execution
+- [ ] OpenRouter DAO for LLM interactions
+- [ ] KV storage for brain configurations
+- [ ] User authentication system (username/password, JWT)
+- [ ] React frontend application
+- [ ] Three.js 3D graph editor
+- [ ] Chat interface
+- [ ] Live brain view
+- [ ] WebSocket streaming
+- [ ] OpenAI-compatible /v1/chat/completions endpoint
 
 ## Tech Stack
 
-<!-- Document the technology stack as it is implemented -->
+See DESIGN.md for complete rationale.
 
 | Layer | Technology |
 |-------|------------|
-| TBD | TBD |
+| Runtime | Cloudflare Workers |
+| Long-running processes | Durable Objects |
+| Configuration storage | Cloudflare KV |
+| LLM Provider | OpenRouter |
+| Frontend | React + Three.js (React Three Fiber) |
+| State Management | Zustand |
+| Auth | JWT + Argon2 |
+| Styling | Tailwind CSS |
+| Build | Vite |
 
 ## File Structure
 
 ```
 /WormsBatsAndFlies
 ├── README.md             # Project overview
-└── CLAUDE.md             # This file (current state)
+├── CLAUDE.md             # This file (current state)
+└── DESIGN.md             # Complete design specification
 ```
 
 ## Development Commands
@@ -51,65 +89,44 @@ This project follows established architectural patterns to ensure maintainabilit
 **IMPORTANT:** All code must maintain clear separation of concerns:
 
 - **HTML** files should only contain markup
-- **JavaScript** must be in separate `.js` files
+- **JavaScript/TypeScript** must be in separate files
 - **CSS** must be in separate `.css` files
 - HTML files should only reference external JS/CSS via `<link>` and `<script>` tags
 
-This separation ensures:
-- Better maintainability and readability
-- Easier code reuse across components
-- Cleaner git diffs when making changes
-- Browser caching benefits for external resources
-- Clear single responsibility for each file
+### Backend Architecture
 
-### Backend Architecture (When Applicable)
-
-If this project includes a backend, organize code into modular, testable components:
+Code is organized into modular, testable components:
 
 **Data Access Objects (DAOs)**
-- Each entity should have its own DAO file with CRUD operations
-- DAOs handle all direct data storage interactions
-- Keep business logic separate from data access
-- Example structure:
-  - `entity.dao.ts`: Core CRUD operations (`get`, `list`, `create`, `update`, `delete`)
-  - `base.ts`: Shared utilities for common operations (e.g., index management)
+- `brain.dao.ts`: Brain CRUD operations
+- `user.dao.ts`: User management
+- `openrouter.dao.ts`: LLM API interactions
 
 **Handlers**
-- Request handlers split by route type or domain
-- Each handler file focuses on a specific area of functionality
+- Request handlers split by domain (auth, brains, executions, openai)
 - Handlers orchestrate between DAOs and return responses
-- Example structure:
-  - `api/public.ts`: Public-facing API endpoints
-  - `api/admin.ts`: Admin/authenticated endpoints
-  - `pages/*.ts`: Page rendering handlers
 
-**Templates**
-- HTML templates for server-rendered pages
-- Keep templates focused on presentation
-- Pass all dynamic data as parameters
-- Use clear, semantic naming
-
-**Utilities**
-- Shared utility functions in dedicated modules
-- Group related utilities together (e.g., date formatting, string manipulation)
-- Keep utilities pure and testable
-- Common utility modules:
-  - `utils.ts`: General helpers
-  - `response.ts`: HTTP response builders
-  - `validation.ts`: Input validation helpers
+**Durable Objects**
+- `BrainExecution.ts`: Manages long-running brain execution with WebSocket streaming
 
 ### Testing Strategy
 
 - Write tests alongside implementation
 - Organize tests to mirror source structure (`src/foo.ts` → `__tests__/foo.test.ts`)
-- Test files should live in a `__tests__` directory at the appropriate level
-- Aim for meaningful coverage of business logic and edge cases
-- Mock external dependencies to test components in isolation
-- Use descriptive test names that explain what is being tested
+- Test files live in a `__tests__` directory at the appropriate level
+- Mock external dependencies (especially OpenRouter) to test in isolation
 
 ### Design Decisions
 
-<!-- Document important architectural and design decisions here as they are made -->
+1. **Cloudflare Durable Objects for Execution**: Chosen for stateful WebSocket connections and long-running process support without traditional server infrastructure.
+
+2. **OpenRouter for LLM Access**: Provides unified API to multiple models, allowing each neuron to use a different model while keeping the codebase simple.
+
+3. **Three.js for 3D Editor**: Industry standard for browser 3D graphics, with React Three Fiber for React integration.
+
+4. **Step-based Execution Model**: Neurons fire in synchronized steps rather than asynchronously to enable pause/inspect functionality and reproducible execution.
+
+5. **Memory as Self-Updates**: Each neuron maintains memory through self-updates rather than full conversation history, creating compressed "learned" state.
 
 ### Coding Standards
 
@@ -150,7 +167,7 @@ This ensures anyone (human or AI) can quickly understand the project without rea
 
 - **CLAUDE.md**: Current state, architecture, patterns, what exists NOW
 - **README.md**: Project overview, setup instructions, user-facing documentation
-- **DESIGN.md** (if used): End goals, future vision, complete specification
+- **DESIGN.md**: End goals, future vision, complete specification, data models
 
 Keep these documents in sync but focused on their specific purposes.
 
@@ -161,8 +178,8 @@ Keep these documents in sync but focused on their specific purposes.
 ### Before Starting Work
 
 1. Read this CLAUDE.md file completely
-2. Review the current file structure
-3. Understand the architectural patterns in use
+2. Read DESIGN.md for the full specification
+3. Review the current file structure
 4. Check "Not Yet Implemented" for related work
 
 ### After Completing Work
@@ -172,14 +189,6 @@ Keep these documents in sync but focused on their specific purposes.
 3. Update file structure if files were added/moved/deleted
 4. Document new patterns or design decisions
 5. Update relevant sections (API endpoints, commands, etc.)
-
-### Questions to Ask
-
-- Does this change introduce a new pattern? → Document it
-- Does this change affect existing patterns? → Update documentation
-- Are new files added? → Update file structure
-- Are new dependencies added? → Update tech stack
-- Is new functionality complete? → Move to "Implemented"
 
 ---
 
