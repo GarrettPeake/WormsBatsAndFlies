@@ -24,13 +24,13 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [x] CLAUDE.md documentation established
 - [x] DESIGN.md comprehensive design document with:
   - Philosophical foundation (Anathem reference)
-  - Data models (Brain, Neuron, Connection, User, Execution states)
+  - Data models (Brain, Neuron, Connection, Execution states)
   - API specification (REST + WebSocket)
   - OpenAI-compatible endpoint specification
-  - Interface wireframes (3D editor, chat, live view)
+  - Interface wireframes (3D sphere editor, chat, live view)
   - Tech stack decisions
   - File structure planning
-  - Neuron prompt template
+  - Neuron prompt template with memory windowing
   - Security considerations
 
 ### Not Yet Implemented
@@ -40,12 +40,12 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [ ] Cloudflare Worker API handlers
 - [ ] Durable Object for brain execution
 - [ ] OpenRouter DAO for LLM interactions
-- [ ] KV storage for brain configurations
-- [ ] User authentication system (username/password, JWT)
+- [ ] KV storage for brain configurations and execution state
+- [ ] Single admin authentication (env secrets + JWT)
 - [ ] React frontend application
-- [ ] Three.js 3D graph editor
+- [ ] Three.js 3D graph editor (spheres with name labels)
 - [ ] Chat interface
-- [ ] Live brain view
+- [ ] Live brain view with neuron status indicators
 - [ ] WebSocket streaming
 - [ ] OpenAI-compatible /v1/chat/completions endpoint
 
@@ -98,8 +98,8 @@ This project follows established architectural patterns to ensure maintainabilit
 Code is organized into modular, testable components:
 
 **Data Access Objects (DAOs)**
-- `brain.dao.ts`: Brain CRUD operations
-- `user.dao.ts`: User management
+- `brain.dao.ts`: Brain CRUD operations with KV
+- `execution.dao.ts`: Execution state persistence with KV
 - `openrouter.dao.ts`: LLM API interactions
 
 **Handlers**
@@ -107,7 +107,8 @@ Code is organized into modular, testable components:
 - Handlers orchestrate between DAOs and return responses
 
 **Durable Objects**
-- `BrainExecution.ts`: Manages long-running brain execution with WebSocket streaming
+- `BrainExecution.ts`: Manages active execution, WebSocket connections, step processing
+- State persisted to KV when paused/disconnected, loaded on resume
 
 ### Testing Strategy
 
@@ -122,11 +123,15 @@ Code is organized into modular, testable components:
 
 2. **OpenRouter for LLM Access**: Provides unified API to multiple models, allowing each neuron to use a different model while keeping the codebase simple.
 
-3. **Three.js for 3D Editor**: Industry standard for browser 3D graphics, with React Three Fiber for React integration.
+3. **Three.js for 3D Editor**: Industry standard for browser 3D graphics, with React Three Fiber for React integration. Neurons rendered as colored spheres with floating name labels.
 
-4. **Step-based Execution Model**: Neurons fire in synchronized steps rather than asynchronously to enable pause/inspect functionality and reproducible execution.
+4. **Step-based Execution Model**: Neurons fire in synchronized steps rather than asynchronously to enable pause/inspect functionality and reproducible execution. Brains "fizzle out" naturally when no neurons have queued inputs.
 
-5. **Memory as Self-Updates**: Each neuron maintains memory through self-updates rather than full conversation history, creating compressed "learned" state.
+5. **Memory Windowing**: Each neuron has a `memoryLength` parameter. Only the last N memory entries are included in prompts, preventing unbounded context growth while still accumulating history.
+
+6. **Single Admin User**: V1 uses hardcoded admin credentials in environment secrets. No user registration or multi-tenancy.
+
+7. **Dumb Connections**: Connections are simple directed edges with no weights or labels. They just pass output from source to target's input queue.
 
 ### Coding Standards
 

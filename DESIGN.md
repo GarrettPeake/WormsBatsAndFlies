@@ -35,13 +35,16 @@ An LLM orchestration system that creates a "neural network" where each neuron is
 │  1. COLLECT: Gather all neurons with queued inputs          │
 │  2. PROCESS: Each neuron generates response from:           │
 │     - System prompt                                         │
-│     - Memory (all previous self-updates)                    │
+│     - Memory (last N self-updates, where N = memoryLength)  │
 │     - Queued input messages                                 │
 │  3. UPDATE: Each neuron appends self-update to memory       │
 │  4. EMIT: Each neuron sends output to connected neurons     │
 │  5. RESET: Clear input queues, ready for next step          │
+│  6. FIZZLE CHECK: If no neurons have queued inputs, stop    │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+The brain continues stepping until it "fizzles out" - when no neurons have any queued inputs after a step completes. This happens naturally when the output neuron has no outgoing connections that loop back, or when the network reaches a stable state.
 
 ---
 
@@ -56,7 +59,6 @@ interface Brain {
   id: string;                    // UUID
   name: string;                  // Human-readable name
   description?: string;          // Optional description
-  ownerId: string;               // User who created this brain
 
   neurons: Neuron[];             // All neurons in this brain
   connections: Connection[];     // All synaptic connections
@@ -69,10 +71,8 @@ interface Brain {
   // Metadata
   createdAt: string;             // ISO timestamp
   updatedAt: string;             // ISO timestamp
-  version: number;               // For optimistic locking
 
   // Default execution settings
-  defaultMaxSteps: number;       // Max steps before auto-stop (safety)
   defaultStepDelayMs: number;    // Delay between steps (for observation)
 }
 ```
@@ -92,6 +92,7 @@ interface Neuron {
   model: string;                 // OpenRouter model ID
   temperature?: number;          // 0-2, defaults to 0.7
   maxTokens?: number;            // Max response tokens
+  memoryLength: number;          // Max memory entries to include in prompt
 
   // 3D Position (for graph editor)
   position: {
@@ -100,9 +101,8 @@ interface Neuron {
     z: number;
   };
 
-  // Visual customization
-  color?: string;                // Hex color for visualization
-  icon?: string;                 // Optional icon identifier
+  // Visual customization (rendered as colored sphere with name label)
+  color?: string;                // Hex color for the sphere
 }
 
 type NeuronType =
@@ -112,72 +112,61 @@ type NeuronType =
   | 'text_output';   // Emits final output (loops to text_input)
 ```
 
-### Connection (Synapse)
+### Connection
 
-A directed edge representing information flow between neurons.
+A directed edge representing information flow between neurons. Connections are "dumb pipes" - they simply pass output from one neuron to the input queue of another.
 
 ```typescript
 interface Connection {
   id: string;                    // UUID
   sourceNeuronId: string;        // Output from this neuron
   targetNeuronId: string;        // Input to this neuron
-
-  // Optional connection properties
-  weight?: number;               // 0-1, for future weighted connections
-  enabled: boolean;              // Can disable without deleting
-  label?: string;                // Optional edge label for UI
 }
 ```
 
-### User
+### Authentication
 
-Authentication and ownership.
+Single admin user with credentials stored in environment secrets. No user registration or multi-user support in V1.
 
 ```typescript
-interface User {
-  id: string;                    // UUID
-  username: string;              // Unique username
-  passwordHash: string;          // Argon2 hashed password
-  email?: string;                // Optional email
-
-  createdAt: string;
-  lastLoginAt?: string;
-
-  // API access
-  apiKeys: ApiKey[];             // For OpenAI-compatible endpoint
-}
-
-interface ApiKey {
-  id: string;
-  keyHash: string;               // Hashed API key (only prefix stored)
-  keyPrefix: string;             // First 8 chars for identification
-  name: string;                  // User-defined name
-  createdAt: string;
-  lastUsedAt?: string;
-  expiresAt?: string;
-}
+// Environment secrets (wrangler.toml / dashboard)
+// ADMIN_USERNAME: string
+// ADMIN_PASSWORD_HASH: string  // Argon2 hash
+// JWT_SECRET: string
+// OPENROUTER_API_KEY: string
 ```
+
+Authentication flow:
+1. POST `/api/auth/login` with username/password
+2. Server verifies against env secrets
+3. Returns JWT token (15min expiry)
+4. All subsequent requests include `Authorization: Bearer <token>`
 
 ---
 
-## Runtime Models (Durable Object State)
+## Runtime Models
+
+### Storage Architecture
+
+- **KV Storage**: Brain configurations and BrainExecution state (persisted for resume)
+- **Durable Objects**: Active execution runtime, WebSocket connections, step processing
+
+Each Durable Object is keyed by execution ID. When an execution is paused or all clients disconnect, the state is persisted to KV. When resumed, the DO loads state from KV and continues.
 
 ### BrainExecution
 
-The runtime state of a brain during execution.
+The runtime state of a brain during execution. Stored in KV for persistence.
 
 ```typescript
 interface BrainExecution {
-  id: string;                    // Execution instance ID
+  id: string;                    // Execution instance ID (also DO key)
   brainId: string;               // Reference to brain config
-  userId: string;                // Who initiated this execution
 
   status: ExecutionStatus;
   currentStep: number;
-  maxSteps: number;
 
   // Runtime neuron states (keyed by neuron ID)
-  neuronStates: Map<string, NeuronState>;
+  neuronStates: Record<string, NeuronState>;
 
   // Execution history for replay/debugging
   stepHistory: StepRecord[];
@@ -185,18 +174,27 @@ interface BrainExecution {
   // Timing
   startedAt: string;
   pausedAt?: string;
-  completedAt?: string;
-
-  // WebSocket session IDs for streaming
-  connectedClients: Set<string>;
+  // No completedAt - brains run until they fizzle (no neurons firing)
 }
 
 type ExecutionStatus =
   | 'initializing'
   | 'running'
-  | 'paused'
-  | 'completed'
-  | 'error';
+  | 'paused';
+  // No 'completed' or 'stopped' - just paused indefinitely or fizzled
+```
+
+### Durable Object Runtime
+
+The DO manages active execution and WebSocket connections.
+
+```typescript
+// Durable Object internal state (not persisted to KV)
+interface ExecutionDOState {
+  execution: BrainExecution;     // Loaded from KV on init
+  connectedClients: Set<WebSocket>;
+  isProcessing: boolean;         // Currently running a step
+}
 ```
 
 ### NeuronState
@@ -304,41 +302,20 @@ Consider adding more specific details to the request.
 
 ## API Specification
 
-### Authentication Endpoints
+### Authentication
 
 ```
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/logout
-POST /api/auth/refresh
-GET  /api/auth/me
+POST /api/auth/login             # Login with username/password, returns JWT
 ```
 
 ### Brain Management
 
 ```
-GET    /api/brains              # List user's brains
+GET    /api/brains              # List all brains
 POST   /api/brains              # Create new brain
 GET    /api/brains/:id          # Get brain config
 PUT    /api/brains/:id          # Update brain config
 DELETE /api/brains/:id          # Delete brain
-POST   /api/brains/:id/clone    # Clone a brain
-```
-
-### Neuron Management (nested under brain)
-
-```
-POST   /api/brains/:id/neurons           # Add neuron
-PUT    /api/brains/:id/neurons/:nid      # Update neuron
-DELETE /api/brains/:id/neurons/:nid      # Remove neuron
-```
-
-### Connection Management
-
-```
-POST   /api/brains/:id/connections       # Add connection
-DELETE /api/brains/:id/connections/:cid  # Remove connection
-PUT    /api/brains/:id/connections/:cid  # Update connection
 ```
 
 ### Execution Control
@@ -348,10 +325,12 @@ POST   /api/brains/:id/execute           # Start execution (returns exec ID)
 GET    /api/executions/:execId           # Get execution state
 POST   /api/executions/:execId/pause     # Pause execution
 POST   /api/executions/:execId/resume    # Resume execution
-POST   /api/executions/:execId/stop      # Stop execution
 POST   /api/executions/:execId/step      # Manual single step (when paused)
+POST   /api/executions/:execId/input     # Send new input to running brain
 WS     /api/executions/:execId/stream    # WebSocket for live updates
 ```
+
+Note: No "stop" endpoint. Executions are either running or paused. A paused execution that is never resumed simply stays paused. Brains naturally "fizzle out" when no neurons have queued inputs.
 
 ### OpenAI-Compatible Endpoint
 
@@ -422,28 +401,29 @@ Three-panel layout:
 
 ### 3D Graph Editor
 
+Neurons are rendered as colored spheres with their names floating above them.
+
 ```
 ┌───────────────────────────────────────────────┬─────────────────┐
 │                                               │ NEURON EDITOR   │
+│            3D CANVAS                          │                 │
+│                                               │ Name: [      ]  │
+│          Analyzer                             │ Type: [▼     ]  │
+│            (●)─────────────▶(●)               │ Model: [▼    ]  │
+│                            Memory             │ Color: [■    ]  │
+│              \              │                 │                 │
+│               \             │                 │ System Prompt:  │
+│                \            ▼                 │ ┌─────────────┐ │
+│                 \         Output              │ │             │ │
+│                  ────────▶(●)                 │ │             │ │
+│                                               │ └─────────────┘ │
 │                                               │                 │
-│            3D CANVAS                          │ Name: [      ]  │
-│                                               │ Type: [▼     ]  │
-│     ┌───┐         ┌───┐                      │ Model: [▼    ]  │
-│     │ A │────────▶│ B │                      │                 │
-│     └───┘         └───┘                      │ System Prompt:  │
-│         \           │                         │ ┌─────────────┐ │
-│          \          │                         │ │             │ │
-│           \         ▼                         │ │             │ │
-│            \     ┌───┐                       │ │             │ │
-│             ────▶│ C │                       │ └─────────────┘ │
-│                  └───┘                       │                 │
-│                                               │ Temperature:    │
-│  [Rotate] [Pan] [Zoom]                       │ [0.7    ───○──] │
-│                                               │                 │
-│  Controls:                                    │ [Delete Neuron] │
-│  - Click: Select node                         │ [Duplicate]     │
-│  - Shift+Click: Add/remove connection        │                 │
-│  - Drag axis: Move node                       │                 │
+│  [Rotate] [Pan] [Zoom] [+ Add Neuron]        │ Memory Length:  │
+│                                               │ [10   ───○────] │
+│  Controls:                                    │ Temperature:    │
+│  - Click: Select neuron                       │ [0.7  ───○────] │
+│  - Shift+Click: Toggle connection             │                 │
+│  - Drag arrows: Move neuron in 3D             │ [Delete Neuron] │
 └───────────────────────────────────────────────┴─────────────────┘
 ```
 
@@ -473,39 +453,41 @@ Three-panel layout:
 
 ### Live Brain View
 
+Same 3D view as editor, but with live status indicators on each neuron sphere.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Live View: Brain Name        [⏸ Pause] [⏹ Stop] [Step: 47]    │
+│  Live View: Brain Name              [⏸ Pause] [Step: 47]       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│        ┌─────────┐                                             │
-│        │INPUT 📥 │ ← "Tell me about..."                        │
-│        │ ●active │                                             │
-│        └────┬────┘                                             │
-│             │                                                   │
-│      ┌──────┴──────┐                                           │
-│      ▼             ▼                                           │
-│  ┌───────┐    ┌───────┐                                        │
-│  │ANALYST│    │MEMORY │                                        │
-│  │●active│    │○idle  │                                        │
-│  │[====] │    │       │  ← Progress bar when processing       │
-│  └───┬───┘    └───┬───┘                                        │
-│      │            │                                            │
-│      └─────┬──────┘                                            │
-│            ▼                                                    │
-│       ┌────────┐                                               │
-│       │ OUTPUT │ → "Based on analysis..."                      │
-│       │ 📤     │                                               │
-│       └────────┘                                               │
+│                    Input                                        │
+│                     (●) ← pulsing = processing                 │
+│                      │                                          │
+│               ┌──────┴──────┐                                  │
+│               ▼             ▼                                   │
+│           Analyst        Memory                                 │
+│            (●)            (○) ← dim = idle                     │
+│             │              │                                    │
+│             └──────┬───────┘                                   │
+│                    ▼                                            │
+│                 Output                                          │
+│                  (●) → "Based on analysis..."                  │
+│                                                                 │
+│  [Rotate] [Pan] [Zoom]                                         │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │ SELECTED: Analyst                                               │
 │ Status: Processing (2.3s)                                       │
-│ Memory: [3 entries] [Expand ▼]                                 │
+│ Memory: [3/10 entries] [Expand ▼]                              │
 │ Input Queue: 1 message from "Input"                            │
 │ Last Output: "The user is asking about space exploration..."   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+Legend:
+- Bright/pulsing sphere = currently processing
+- Dim sphere = idle (no inputs)
+- Glow color indicates neuron's assigned color
 
 ---
 
@@ -535,11 +517,7 @@ type WSMessage =
   | { type: 'step_completed'; data: { step: number; firedCount: number } }
   | { type: 'execution_paused'; data: { step: number } }
   | { type: 'execution_resumed'; data: { step: number } }
-  | { type: 'execution_completed'; data: {
-      finalOutput: string;
-      totalSteps: number;
-      totalTokens: number
-    }}
+  | { type: 'execution_fizzled'; data: { totalSteps: number } }
   | { type: 'final_output'; data: { content: string } };
 ```
 
@@ -549,8 +527,7 @@ type WSMessage =
 type WSClientMessage =
   | { type: 'pause' }
   | { type: 'resume' }
-  | { type: 'step' }  // Manual single step
-  | { type: 'stop' }
+  | { type: 'step' }  // Manual single step (when paused)
   | { type: 'input'; data: { content: string; type: 'text' | 'image' } };
 ```
 
@@ -587,7 +564,7 @@ type WSClientMessage =
 │   ├── /api                     # Worker API handlers
 │   │   ├── index.ts             # Main router
 │   │   ├── /handlers
-│   │   │   ├── auth.ts          # Authentication endpoints
+│   │   │   ├── auth.ts          # Login endpoint
 │   │   │   ├── brains.ts        # Brain CRUD
 │   │   │   ├── executions.ts    # Execution control
 │   │   │   └── openai.ts        # OpenAI-compatible endpoint
@@ -596,24 +573,21 @@ type WSClientMessage =
 │   │       └── cors.ts
 │   │
 │   ├── /dao                     # Data Access Objects
-│   │   ├── brain.dao.ts
-│   │   ├── user.dao.ts
+│   │   ├── brain.dao.ts         # Brain CRUD with KV
+│   │   ├── execution.dao.ts     # Execution state with KV
 │   │   └── openrouter.dao.ts    # LLM API interactions
 │   │
 │   ├── /durable-objects
-│   │   ├── BrainExecution.ts    # Main execution DO
-│   │   └── types.ts
+│   │   └── BrainExecution.ts    # Main execution DO
 │   │
 │   ├── /types                   # TypeScript interfaces
 │   │   ├── brain.ts
-│   │   ├── neuron.ts
 │   │   ├── execution.ts
 │   │   └── api.ts
 │   │
 │   └── /utils
 │       ├── id.ts                # UUID generation
-│       ├── auth.ts              # Password hashing, JWT
-│       └── validation.ts
+│       └── auth.ts              # JWT verification
 │
 ├── /web                         # Frontend application
 │   ├── /src
@@ -623,23 +597,21 @@ type WSClientMessage =
 │   │   ├── /components
 │   │   │   ├── /editor          # 3D graph editor
 │   │   │   │   ├── Canvas3D.tsx
-│   │   │   │   ├── NeuronNode.tsx
-│   │   │   │   ├── Connection.tsx
+│   │   │   │   ├── NeuronSphere.tsx
+│   │   │   │   ├── ConnectionLine.tsx
 │   │   │   │   └── NeuronEditor.tsx
 │   │   │   │
 │   │   │   ├── /chat            # Chat interface
-│   │   │   │   ├── ChatView.tsx
-│   │   │   │   └── MessageBubble.tsx
+│   │   │   │   └── ChatView.tsx
 │   │   │   │
 │   │   │   ├── /live            # Live brain view
 │   │   │   │   ├── LiveView.tsx
-│   │   │   │   ├── NeuronStatus.tsx
-│   │   │   │   └── MemoryPanel.tsx
+│   │   │   │   └── NeuronInspector.tsx
 │   │   │   │
 │   │   │   └── /common
 │   │   │       ├── Layout.tsx
 │   │   │       ├── BrainList.tsx
-│   │   │       └── AuthForms.tsx
+│   │   │       └── LoginForm.tsx
 │   │   │
 │   │   ├── /hooks
 │   │   │   ├── useWebSocket.ts
@@ -671,8 +643,8 @@ When a neuron fires, this is the prompt structure sent to OpenRouter:
 ```
 System: {neuron.systemPrompt}
 
-=== MEMORY ===
-{memory entries, if any}
+=== MEMORY (last {memoryLength} entries) ===
+{memory entries, most recent last}
 
 === INPUTS ===
 {formatted input messages}
@@ -682,7 +654,7 @@ You are the "{neuron.name}" core of a larger neural network.
 
 Based on your system prompt, memory, and the inputs above, generate TWO responses:
 
-1. SELF-UPDATE: A brief note to yourself about what you learned or how your state changed. This will be added to your memory for future reference.
+1. SELF-UPDATE: A brief note to yourself about what you learned or how your state changed. This will be added to your memory for future reference. Keep it concise - you only retain {memoryLength} entries.
 
 2. OUTPUT: Your response to pass to connected neurons. This should be your processed understanding, insight, or generated content based on the inputs.
 
@@ -698,33 +670,26 @@ Format your response EXACTLY as:
 If you have nothing meaningful to output (inputs weren't relevant to your role), you may omit the output section entirely.
 ```
 
+Note: Memory is windowed - only the last N entries (where N = neuron.memoryLength) are included in the prompt. Older memories are still stored but not sent to the LLM, preventing unbounded context growth.
+
 ---
 
 ## Security Considerations
 
 1. **Authentication**
-   - Argon2 for password hashing
-   - JWT with short expiry (15min) + refresh tokens
-   - API keys for programmatic access
+   - Single admin user with Argon2-hashed password in env secrets
+   - JWT with short expiry (15min)
+   - All API endpoints require valid JWT (except /api/auth/login)
 
-2. **Authorization**
-   - Users can only access their own brains
-   - Execution instances bound to user
-
-3. **Rate Limiting**
-   - Per-user request limits
-   - Per-brain execution limits
-   - Token budget per brain execution
-
-4. **Input Validation**
+2. **Input Validation**
    - Sanitize all user inputs
    - Validate brain configurations
    - Limit neuron/connection counts per brain
 
-5. **LLM Safety**
-   - Prompt injection awareness
-   - Output monitoring for sensitive content
-   - Token limits per neuron
+3. **LLM Safety**
+   - Prompt injection awareness in neuron prompts
+   - Token limits per neuron (maxTokens setting)
+   - Memory windowing prevents unbounded context growth
 
 ---
 
