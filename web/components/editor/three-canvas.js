@@ -1,9 +1,9 @@
-// WebGL canvas component for 3D brain visualization
+// Three.js canvas component for 3D brain visualization
 
-import { Renderer } from '../../webgl/renderer.js';
+import { Renderer } from '../../three/renderer.js';
 import { appState, setSelectedNeuron } from '../../lib/state.js';
 
-class WebGLCanvas extends HTMLElement {
+class ThreeCanvas extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -130,4 +130,4 @@ class WebGLCanvas extends HTMLElement {
   }
 }
 
-customElements.define('webgl-canvas', WebGLCanvas);
+customElements.define('three-canvas', ThreeCanvas);

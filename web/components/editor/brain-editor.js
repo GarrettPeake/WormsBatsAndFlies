@@ -49,7 +49,7 @@ class BrainEditor extends HTMLElement {
     }
 
     // Update canvas
-    const canvas = this.shadowRoot.querySelector('webgl-canvas');
+    const canvas = this.shadowRoot.querySelector('three-canvas');
     if (canvas) {
       canvas.setBrain(this.brain);
     }
@@ -203,7 +203,7 @@ class BrainEditor extends HTMLElement {
         </header>
         <div class="editor-content">
           <div class="editor-canvas">
-            <webgl-canvas></webgl-canvas>
+            <three-canvas></three-canvas>
             <div class="toolbar">
               <button class="btn btn--secondary" id="add-neuron-btn">+ Add Neuron</button>
               <span class="toolbar__divider"></span>
@@ -239,7 +239,7 @@ class BrainEditor extends HTMLElement {
     });
 
     this.shadowRoot.getElementById('reset-camera-btn').addEventListener('click', () => {
-      const canvas = this.shadowRoot.querySelector('webgl-canvas');
+      const canvas = this.shadowRoot.querySelector('three-canvas');
       if (canvas) {
         canvas.resetCamera();
       }
