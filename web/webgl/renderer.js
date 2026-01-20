@@ -1,87 +1,91 @@
-// Main WebGL renderer
+// Three.js renderer for brain visualization
 
-import { Camera } from './camera.js';
-import { SphereRenderer } from './sphere.js';
-import { LineRenderer } from './line.js';
-import { TextRenderer } from './text.js';
-import { Picking } from './picking.js';
-import { vec3Sub, vec3Normalize, vec3Scale, vec3Add, vec3Length } from '../utils/math.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
-    this.gl = canvas.getContext('webgl2', {
+
+    // Three.js core
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x0a0a0f);
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
       antialias: true,
-      alpha: false,
     });
+    this.renderer.setPixelRatio(window.devicePixelRatio);
 
-    if (!this.gl) {
-      throw new Error('WebGL2 not supported');
-    }
+    // Camera
+    this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+    this.camera.position.set(7, 5, 7);
 
-    this.camera = new Camera(canvas);
-    this.sphereRenderer = null;
-    this.lineRenderer = null;
-    this.textRenderer = null;
-    this.picking = null;
+    // Orbit controls
+    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.minDistance = 2;
+    this.controls.maxDistance = 50;
 
+    // Raycaster for picking
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+
+    // Data
     this.neurons = [];
     this.connections = [];
     this.selectedNeuronId = null;
     this.hoveredNeuronId = null;
 
-    this.neuronIdMap = new Map(); // Maps picking ID to neuron ID
+    // Three.js objects
+    this.neuronMeshes = new Map(); // neuronId -> mesh
+    this.connectionLines = [];
+    this.labelSprites = new Map(); // neuronId -> sprite
 
+    // Animation state
     this.animationFrame = null;
+
+    // Callbacks
     this.onNeuronSelect = null;
     this.onNeuronHover = null;
 
-    // Bound event handlers (stored for cleanup)
+    // Bound event handlers
     this._boundOnClick = this.onClick.bind(this);
     this._boundOnMouseMove = this.onMouseMove.bind(this);
     this._boundOnResize = this.resize.bind(this);
 
-    // Throttle state for mousemove picking
+    // Throttle state for mousemove
     this._lastPickTime = 0;
-    this._pickThrottleMs = 50; // Max 20 picks per second
+    this._pickThrottleMs = 50;
 
     this.init();
   }
 
   init() {
-    const gl = this.gl;
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    this.scene.add(ambientLight);
 
-    // Enable depth testing
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 5);
+    this.scene.add(directionalLight);
 
-    // Set clear color (dark background)
-    gl.clearColor(0.04, 0.04, 0.06, 1.0);
-
-    // Initialize renderers
-    this.sphereRenderer = new SphereRenderer(gl);
-    this.lineRenderer = new LineRenderer(gl);
-    this.textRenderer = new TextRenderer(gl);
-    this.picking = new Picking(gl, this.canvas.width, this.canvas.height);
-
-    // Set up event listeners
+    // Event listeners
     this.canvas.addEventListener('click', this._boundOnClick);
     this.canvas.addEventListener('mousemove', this._boundOnMouseMove);
-
-    // Handle resize
-    this.resize();
     window.addEventListener('resize', this._boundOnResize);
+
+    this.resize();
   }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
 
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
-
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.picking.resize(this.canvas.width, this.canvas.height);
+    this.renderer.setSize(rect.width, rect.height, false);
+    this.camera.aspect = rect.width / rect.height;
+    this.camera.updateProjectionMatrix();
   }
 
   /**
@@ -89,12 +93,7 @@ export class Renderer {
    */
   setNeurons(neurons) {
     this.neurons = neurons;
-    this.neuronIdMap.clear();
-
-    // Build picking ID map (start from 1, 0 is reserved for "no pick")
-    neurons.forEach((neuron, index) => {
-      this.neuronIdMap.set(index + 1, neuron.id);
-    });
+    this.rebuildScene();
   }
 
   /**
@@ -102,6 +101,7 @@ export class Renderer {
    */
   setConnections(connections) {
     this.connections = connections;
+    this.rebuildConnections();
   }
 
   /**
@@ -109,6 +109,7 @@ export class Renderer {
    */
   setSelectedNeuron(neuronId) {
     this.selectedNeuronId = neuronId;
+    this.updateNeuronAppearance();
   }
 
   /**
@@ -122,28 +123,208 @@ export class Renderer {
   }
 
   /**
-   * Get picking ID for a neuron
+   * Rebuild the entire scene with current neurons
    */
-  getPickingId(neuronId) {
-    for (const [pickId, nId] of this.neuronIdMap) {
-      if (nId === neuronId) return pickId;
+  rebuildScene() {
+    // Clear existing neuron meshes
+    for (const mesh of this.neuronMeshes.values()) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      mesh.material.dispose();
     }
-    return 0;
+    this.neuronMeshes.clear();
+
+    // Clear existing labels
+    for (const sprite of this.labelSprites.values()) {
+      this.scene.remove(sprite);
+      sprite.material.map.dispose();
+      sprite.material.dispose();
+    }
+    this.labelSprites.clear();
+
+    // Create new meshes
+    const geometry = new THREE.SphereGeometry(0.5, 32, 24);
+
+    for (const neuron of this.neurons) {
+      const color = new THREE.Color(neuron.color || '#6366f1');
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.4,
+        metalness: 0.1,
+        emissive: new THREE.Color(0x000000),
+      });
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(neuron.position.x, neuron.position.y, neuron.position.z);
+      mesh.userData.neuronId = neuron.id;
+
+      this.scene.add(mesh);
+      this.neuronMeshes.set(neuron.id, mesh);
+
+      // Create label sprite
+      const sprite = this.createLabelSprite(neuron.name);
+      sprite.position.set(
+        neuron.position.x,
+        neuron.position.y + 0.9,
+        neuron.position.z
+      );
+      this.scene.add(sprite);
+      this.labelSprites.set(neuron.id, sprite);
+    }
+
+    this.rebuildConnections();
+  }
+
+  /**
+   * Rebuild connections (arrows between neurons)
+   */
+  rebuildConnections() {
+    // Clear existing connections
+    for (const line of this.connectionLines) {
+      this.scene.remove(line);
+      if (line.geometry) line.geometry.dispose();
+      if (line.material) line.material.dispose();
+    }
+    this.connectionLines = [];
+
+    const connectionColor = new THREE.Color('#4b5563');
+
+    for (const conn of this.connections) {
+      const sourceNeuron = this.neurons.find(n => n.id === conn.sourceNeuronId);
+      const targetNeuron = this.neurons.find(n => n.id === conn.targetNeuronId);
+
+      if (!sourceNeuron || !targetNeuron) continue;
+
+      const sourcePos = new THREE.Vector3(
+        sourceNeuron.position.x,
+        sourceNeuron.position.y,
+        sourceNeuron.position.z
+      );
+      const targetPos = new THREE.Vector3(
+        targetNeuron.position.x,
+        targetNeuron.position.y,
+        targetNeuron.position.z
+      );
+
+      // Calculate direction and offset from sphere surface
+      const direction = new THREE.Vector3().subVectors(targetPos, sourcePos).normalize();
+      const start = sourcePos.clone().add(direction.clone().multiplyScalar(0.55));
+      const end = targetPos.clone().sub(direction.clone().multiplyScalar(0.55));
+
+      // Create main line
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: connectionColor,
+        transparent: true,
+        opacity: 0.7,
+      });
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      this.scene.add(line);
+      this.connectionLines.push(line);
+
+      // Create arrowhead
+      const arrowLength = 0.2;
+      const arrowWidth = 0.1;
+
+      // Get perpendicular vector
+      const up = Math.abs(direction.y) < 0.9
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3().crossVectors(direction, up).normalize();
+
+      const arrowBase = end.clone().sub(direction.clone().multiplyScalar(arrowLength));
+      const arrowTip1 = arrowBase.clone().add(perp.clone().multiplyScalar(arrowWidth));
+      const arrowTip2 = arrowBase.clone().sub(perp.clone().multiplyScalar(arrowWidth));
+
+      const arrow1Geometry = new THREE.BufferGeometry().setFromPoints([end, arrowTip1]);
+      const arrow2Geometry = new THREE.BufferGeometry().setFromPoints([end, arrowTip2]);
+
+      const arrow1 = new THREE.Line(arrow1Geometry, lineMaterial.clone());
+      const arrow2 = new THREE.Line(arrow2Geometry, lineMaterial.clone());
+
+      this.scene.add(arrow1);
+      this.scene.add(arrow2);
+      this.connectionLines.push(arrow1, arrow2);
+    }
+  }
+
+  /**
+   * Create a billboard sprite with text
+   */
+  createLabelSprite(text) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const font = '24px sans-serif';
+    const padding = 8;
+
+    ctx.font = font;
+    const metrics = ctx.measureText(text);
+    const width = Math.ceil(metrics.width + padding * 2);
+    const height = Math.ceil(32 + padding * 2);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.font = font;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, width / 2, height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    const scale = 0.02;
+    sprite.scale.set(width * scale, height * scale, 1);
+
+    return sprite;
+  }
+
+  /**
+   * Update neuron appearance based on selection and status
+   */
+  updateNeuronAppearance() {
+    const time = Date.now();
+
+    for (const neuron of this.neurons) {
+      const mesh = this.neuronMeshes.get(neuron.id);
+      if (!mesh) continue;
+
+      const material = mesh.material;
+      const baseColor = new THREE.Color(neuron.color || '#6366f1');
+
+      let emissiveIntensity = 0;
+
+      // Selected glow
+      if (neuron.id === this.selectedNeuronId) {
+        emissiveIntensity = 0.3;
+      }
+
+      // Status-based effects
+      if (neuron.status === 'processing') {
+        emissiveIntensity = 0.5 + Math.sin(time * 0.01) * 0.2;
+      } else if (neuron.status === 'fired') {
+        emissiveIntensity = 0.4;
+      }
+
+      material.emissive.copy(baseColor).multiplyScalar(emissiveIntensity);
+    }
   }
 
   /**
    * Handle click for selection
    */
-  onClick(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-
-    // Render picking pass
-    this.renderPicking();
-
-    const pickId = this.picking.pick(x, y);
-    const neuronId = pickId ? this.neuronIdMap.get(pickId) : null;
+  onClick(event) {
+    const neuronId = this.pickNeuron(event);
 
     if (this.onNeuronSelect) {
       this.onNeuronSelect(neuronId);
@@ -151,25 +332,17 @@ export class Renderer {
   }
 
   /**
-   * Handle mouse move for hover (throttled to prevent excessive GPU work)
+   * Handle mouse move for hover
    */
-  onMouseMove(e) {
-    // Throttle picking to avoid excessive GPU readbacks
+  onMouseMove(event) {
+    // Throttle picking
     const now = performance.now();
     if (now - this._lastPickTime < this._pickThrottleMs) {
       return;
     }
     this._lastPickTime = now;
 
-    const rect = this.canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
-
-    // Render picking pass
-    this.renderPicking();
-
-    const pickId = this.picking.pick(x, y);
-    const neuronId = pickId ? this.neuronIdMap.get(pickId) : null;
+    const neuronId = this.pickNeuron(event);
 
     if (neuronId !== this.hoveredNeuronId) {
       this.hoveredNeuronId = neuronId;
@@ -182,105 +355,23 @@ export class Renderer {
   }
 
   /**
-   * Render picking pass
+   * Pick neuron at mouse position using raycaster
    */
-  renderPicking() {
-    const viewProjection = this.camera.getViewProjectionMatrix();
+  pickNeuron(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.picking.begin();
+    this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    // Render neurons with picking IDs
-    const spheres = this.neurons.map((neuron, index) => ({
-      id: index + 1,
-      position: neuron.position,
-      radius: 0.5,
-      color: [1, 1, 1],
-    }));
+    const meshes = Array.from(this.neuronMeshes.values());
+    const intersects = this.raycaster.intersectObjects(meshes);
 
-    this.sphereRenderer.renderBatch(viewProjection, spheres, true);
+    if (intersects.length > 0) {
+      return intersects[0].object.userData.neuronId;
+    }
 
-    this.picking.end();
-  }
-
-  /**
-   * Render the scene
-   */
-  render() {
-    const gl = this.gl;
-    const viewProjection = this.camera.getViewProjectionMatrix();
-
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Render connections first (behind spheres)
-    this.renderConnections(viewProjection);
-
-    // Render neurons
-    this.renderNeurons(viewProjection);
-
-    // Render labels
-    this.renderLabels(viewProjection);
-  }
-
-  renderNeurons(viewProjection) {
-    const spheres = this.neurons.map(neuron => {
-      let emissive = 0;
-
-      // Selected glow
-      if (neuron.id === this.selectedNeuronId) {
-        emissive = 0.3;
-      }
-
-      // Status-based effects
-      if (neuron.status === 'processing') {
-        emissive = 0.5 + Math.sin(Date.now() * 0.01) * 0.2;
-      } else if (neuron.status === 'fired') {
-        emissive = 0.4;
-      }
-
-      return {
-        id: this.getPickingId(neuron.id),
-        position: neuron.position,
-        radius: 0.5,
-        color: neuron.color || '#6366f1',
-        emissive,
-      };
-    });
-
-    this.sphereRenderer.renderBatch(viewProjection, spheres, false);
-  }
-
-  renderConnections(viewProjection) {
-    const arrows = this.connections.map(conn => {
-      const sourceNeuron = this.neurons.find(n => n.id === conn.sourceNeuronId);
-      const targetNeuron = this.neurons.find(n => n.id === conn.targetNeuronId);
-
-      if (!sourceNeuron || !targetNeuron) return null;
-
-      // Calculate arrow endpoints (offset from sphere surface)
-      const dir = vec3Normalize(vec3Sub(targetNeuron.position, sourceNeuron.position));
-      const start = vec3Add(sourceNeuron.position, vec3Scale(dir, 0.55));
-      const end = vec3Sub(targetNeuron.position, vec3Scale(dir, 0.55));
-
-      return {
-        start,
-        end,
-        color: '#4b5563',
-      };
-    }).filter(Boolean);
-
-    this.lineRenderer.renderArrows(viewProjection, arrows);
-  }
-
-  renderLabels(viewProjection) {
-    const labels = this.neurons.map(neuron => ({
-      text: neuron.name,
-      position: neuron.position,
-      color: '#ffffff',
-      scale: 0.4,
-      offset: { x: 0, y: 0.9, z: 0 },
-    }));
-
-    this.textRenderer.renderBatch(viewProjection, labels);
+    return null;
   }
 
   /**
@@ -288,7 +379,9 @@ export class Renderer {
    */
   start() {
     const loop = () => {
-      this.render();
+      this.controls.update();
+      this.updateNeuronAppearance();
+      this.renderer.render(this.scene, this.camera);
       this.animationFrame = requestAnimationFrame(loop);
     };
     loop();
@@ -310,15 +403,49 @@ export class Renderer {
   focusNeuron(neuronId) {
     const neuron = this.neurons.find(n => n.id === neuronId);
     if (neuron) {
-      this.camera.animateTo(neuron.position, 5);
+      this.animateTo(
+        new THREE.Vector3(neuron.position.x, neuron.position.y, neuron.position.z),
+        5
+      );
     }
+  }
+
+  /**
+   * Smoothly animate camera to target
+   */
+  animateTo(target, distance, duration = 500) {
+    const startTarget = this.controls.target.clone();
+    const startPosition = this.camera.position.clone();
+
+    // Calculate end position (maintain current direction but adjust distance)
+    const direction = new THREE.Vector3()
+      .subVectors(startPosition, startTarget)
+      .normalize();
+    const endPosition = target.clone().add(direction.multiplyScalar(distance));
+
+    const startTime = performance.now();
+
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3); // Ease out cubic
+
+      this.controls.target.lerpVectors(startTarget, target, eased);
+      this.camera.position.lerpVectors(startPosition, endPosition, eased);
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
   }
 
   /**
    * Reset camera to default view
    */
   resetCamera() {
-    this.camera.reset();
+    this.animateTo(new THREE.Vector3(0, 0, 0), 10);
   }
 
   /**
@@ -327,13 +454,31 @@ export class Renderer {
   destroy() {
     this.stop();
 
-    // Remove event listeners to prevent memory leaks
+    // Remove event listeners
     this.canvas.removeEventListener('click', this._boundOnClick);
     this.canvas.removeEventListener('mousemove', this._boundOnMouseMove);
     window.removeEventListener('resize', this._boundOnResize);
 
-    // Clean up WebGL resources
-    this.picking.destroy();
-    this.textRenderer.clearCache();
+    // Dispose controls
+    this.controls.dispose();
+
+    // Dispose all meshes and materials
+    for (const mesh of this.neuronMeshes.values()) {
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
+
+    for (const sprite of this.labelSprites.values()) {
+      sprite.material.map.dispose();
+      sprite.material.dispose();
+    }
+
+    for (const line of this.connectionLines) {
+      if (line.geometry) line.geometry.dispose();
+      if (line.material) line.material.dispose();
+    }
+
+    // Dispose renderer
+    this.renderer.dispose();
   }
 }

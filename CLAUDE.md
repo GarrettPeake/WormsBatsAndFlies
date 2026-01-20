@@ -39,13 +39,8 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [x] Durable Object (BrainExecution.ts) for managing execution runtime
 - [x] Worker entry point and router (index.ts)
 - [x] CSS files (reset.css, variables.css, layout.css, components.css)
-- [x] WebGL rendering engine:
-  - [x] renderer.js - Main renderer
-  - [x] camera.js - Orbit camera controls
-  - [x] sphere.js - Sphere geometry and rendering
-  - [x] line.js - Connection line/arrow rendering
-  - [x] text.js - Text label rendering via Canvas 2D textures
-  - [x] picking.js - GPU-based object picking
+- [x] Three.js rendering engine:
+  - [x] renderer.js - Three.js renderer with OrbitControls, raycaster picking, and sprite labels
 - [x] Frontend library utilities:
   - [x] api-client.js - API client for backend communication
   - [x] websocket.js - WebSocket manager for live streaming
@@ -81,7 +76,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 | Configuration storage | Cloudflare KV |
 | LLM Provider | OpenRouter |
 | Frontend | Web Components (vanilla) |
-| 3D Rendering | WebGL (native) |
+| 3D Rendering | Three.js (CDN) |
 | Auth | JWT + SHA-256 |
 | Styling | Pure CSS |
 | Build/Dev | Vite |
@@ -160,21 +155,13 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │       └── neuron-inspector.js
 │   │
 │   ├── /webgl
-│   │   ├── renderer.js
-│   │   ├── camera.js
-│   │   ├── sphere.js
-│   │   ├── line.js
-│   │   ├── text.js
-│   │   └── picking.js
+│   │   └── renderer.js          # Three.js renderer
 │   │
-│   ├── /lib
-│   │   ├── api-client.js
-│   │   ├── websocket.js
-│   │   ├── state.js
-│   │   └── router.js
-│   │
-│   └── /utils
-│       └── math.js
+│   └── /lib
+│       ├── api-client.js
+│       ├── websocket.js
+│       ├── state.js
+│       └── router.js
 │
 └── /tests
     └── /unit
@@ -303,10 +290,11 @@ Code is organized into modular, testable components:
 - Simple reactive store pattern
 - Centralized app state with subscription model
 
-**WebGL Rendering**
-- Native WebGL2 for 3D visualization
-- GPU-based object picking for interaction
-- Billboard text labels using Canvas 2D textures
+**Three.js Rendering**
+- Three.js loaded from CDN for 3D visualization
+- OrbitControls for camera manipulation
+- Raycaster for object picking
+- Sprite labels using Canvas 2D textures
 
 ### Design Decisions
 
@@ -314,7 +302,7 @@ Code is organized into modular, testable components:
 
 2. **OpenRouter for LLM Access**: Unified API to multiple models, allowing each neuron to use a different model.
 
-3. **Vanilla Web Technologies**: Web Components, native WebGL, pure CSS. No framework overhead, full control, smaller bundle size.
+3. **Vanilla Web Technologies**: Web Components, Three.js from CDN, pure CSS. No framework overhead, simplified 3D rendering.
 
 4. **Step-based Execution Model**: Neurons fire in synchronized steps for pause/inspect functionality and reproducible execution.
 
