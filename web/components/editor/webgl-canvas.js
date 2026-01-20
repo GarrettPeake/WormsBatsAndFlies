@@ -19,11 +19,12 @@ class WebGLCanvas extends HTMLElement {
     };
 
     this._onNeuronUpdated = (e) => {
-      if (this.brain && e.detail) {
+      if (this.brain && e.detail && this.renderer) {
         const index = this.brain.neurons.findIndex(n => n.id === e.detail.id);
         if (index >= 0) {
           this.brain.neurons[index] = e.detail;
-          this.updateRenderer();
+          // Use incremental update instead of full rebuild to avoid memory leak
+          this.renderer.updateNeuron(e.detail);
         }
       }
     };

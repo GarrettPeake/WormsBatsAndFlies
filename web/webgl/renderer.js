@@ -117,6 +117,56 @@ export class Renderer {
   }
 
   /**
+   * Update a single neuron's properties without rebuilding the entire scene.
+   * This is much more efficient than rebuildScene() for property changes.
+   */
+  updateNeuron(neuron) {
+    const mesh = this.neuronMeshes.get(neuron.id);
+    if (!mesh) return;
+
+    // Update position
+    mesh.position.set(neuron.position.x, neuron.position.y, neuron.position.z);
+
+    // Update color
+    const color = new THREE.Color(neuron.color || '#6366f1');
+    mesh.material.color.copy(color);
+
+    // Update label sprite position and text if needed
+    const sprite = this.labelSprites.get(neuron.id);
+    if (sprite) {
+      sprite.position.set(
+        neuron.position.x,
+        neuron.position.y + 0.9,
+        neuron.position.z
+      );
+
+      // Check if name changed by comparing with stored name
+      const storedNeuron = this.neurons.find(n => n.id === neuron.id);
+      if (storedNeuron && storedNeuron.name !== neuron.name) {
+        // Name changed - update the sprite
+        this.scene.remove(sprite);
+        sprite.material.map.dispose();
+        sprite.material.dispose();
+
+        const newSprite = this.createLabelSprite(neuron.name);
+        newSprite.position.set(
+          neuron.position.x,
+          neuron.position.y + 0.9,
+          neuron.position.z
+        );
+        this.scene.add(newSprite);
+        this.labelSprites.set(neuron.id, newSprite);
+      }
+    }
+
+    // Update the neuron in our array
+    const index = this.neurons.findIndex(n => n.id === neuron.id);
+    if (index >= 0) {
+      this.neurons[index] = neuron;
+    }
+  }
+
+  /**
    * Set neuron status (for live view)
    */
   setNeuronStatus(neuronId, status) {
@@ -181,7 +231,8 @@ export class Renderer {
       this.labelSprites.set(neuron.id, sprite);
     }
 
-    this.rebuildConnections();
+    // Note: rebuildConnections() is NOT called here to avoid double-rebuild.
+    // The caller should call setConnections() separately if needed.
   }
 
   /**
