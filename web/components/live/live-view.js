@@ -79,6 +79,12 @@ class LiveView extends HTMLElement {
     const canvas = this.shadowRoot.querySelector('canvas');
     if (!canvas || !this.brain) return;
 
+    // Destroy existing renderer to prevent WebGL context leaks
+    if (this.renderer) {
+      this.renderer.destroy();
+      this.renderer = null;
+    }
+
     this.renderer = new Renderer(canvas);
     this.renderer.setNeurons(this.brain.neurons);
     this.renderer.setConnections(this.brain.connections);

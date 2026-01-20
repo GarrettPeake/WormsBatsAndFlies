@@ -71,6 +71,12 @@ class ThreeCanvas extends HTMLElement {
     const canvas = this.shadowRoot.querySelector('canvas');
     if (!canvas) return;
 
+    // Destroy existing renderer to prevent WebGL context leaks
+    if (this.renderer) {
+      this.renderer.destroy();
+      this.renderer = null;
+    }
+
     this.renderer = new Renderer(canvas);
 
     // Handle neuron selection
