@@ -99,6 +99,7 @@ export interface Env {
   BRAINS_KV: KVNamespace;
   EXECUTIONS_KV: KVNamespace;
   BRAIN_EXECUTION: DurableObjectNamespace;
+  ASSETS: Fetcher;
   ADMIN_USERNAME: string;
   ADMIN_PASSWORD_HASH: string;
   JWT_SECRET: string;
