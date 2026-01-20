@@ -542,7 +542,7 @@ type WSClientMessage =
 | Configuration storage | Cloudflare KV | Fast reads for brain configs |
 | LLM Provider | OpenRouter | Multi-model access, unified API |
 | Frontend | Web Components | Native browser APIs, no framework overhead |
-| 3D Rendering | WebGL (native) | Direct GPU access, no library abstraction |
+| 3D Rendering | Three.js | Battle-tested 3D library, simplified development |
 | Styling | Pure CSS | Standard styling, CSS custom properties for theming |
 | Auth | JWT + Argon2 | Secure, stateless sessions |
 | Build/Dev | Vite | Fast dev server, ES module bundling |
@@ -551,7 +551,7 @@ type WSClientMessage =
 ### Why Vanilla Web Technologies?
 
 1. **Web Components**: Native browser support, no virtual DOM overhead, true encapsulation with Shadow DOM
-2. **Native WebGL**: Full control over 3D rendering, smaller bundle size, no Three.js abstraction layer
+2. **Three.js from CDN**: Battle-tested 3D library loaded from CDN, simplified rendering code, robust camera controls
 3. **Pure CSS**: No build step for styles, CSS custom properties for dynamic theming, native cascade
 
 ---
@@ -625,27 +625,14 @@ type WSClientMessage =
 │   │       ├── live-view.js     # Live brain visualization
 │   │       └── neuron-inspector.js  # Neuron state panel
 │   │
-│   ├── /webgl                   # WebGL rendering engine
-│   │   ├── renderer.js          # Main WebGL renderer
-│   │   ├── camera.js            # Camera controls (orbit, pan, zoom)
-│   │   ├── sphere.js            # Sphere geometry + shaders
-│   │   ├── line.js              # Connection line rendering
-│   │   ├── text.js              # Text label rendering (Canvas2D → texture)
-│   │   ├── picking.js           # GPU-based object picking
-│   │   └── shaders/
-│   │       ├── sphere.vert
-│   │       ├── sphere.frag
-│   │       ├── line.vert
-│   │       └── line.frag
+│   ├── /webgl                   # 3D rendering (Three.js)
+│   │   └── renderer.js          # Three.js renderer with OrbitControls
 │   │
-│   ├── /lib
-│   │   ├── api-client.js        # API client
-│   │   ├── websocket.js         # WebSocket manager
-│   │   ├── state.js             # Simple reactive state (no library)
-│   │   └── router.js            # Simple hash-based router
-│   │
-│   └── /utils
-│       └── math.js              # Vector/matrix math for WebGL
+│   └── /lib
+│       ├── api-client.js        # API client
+│       ├── websocket.js         # WebSocket manager
+│       ├── state.js             # Simple reactive state (no library)
+│       └── router.js            # Simple hash-based router
 │
 └── /tests
     ├── /unit                    # Backend unit tests (Vitest)
