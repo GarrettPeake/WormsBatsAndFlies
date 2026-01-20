@@ -42,8 +42,8 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [ ] OpenRouter DAO for LLM interactions
 - [ ] KV storage for brain configurations and execution state
 - [ ] Single admin authentication (env secrets + JWT)
-- [ ] React frontend application
-- [ ] Three.js 3D graph editor (spheres with name labels)
+- [ ] Web Components frontend
+- [ ] WebGL 3D graph editor (spheres with name labels)
 - [ ] Chat interface
 - [ ] Live brain view with neuron status indicators
 - [ ] WebSocket streaming
@@ -59,11 +59,12 @@ See DESIGN.md for complete rationale.
 | Long-running processes | Durable Objects |
 | Configuration storage | Cloudflare KV |
 | LLM Provider | OpenRouter |
-| Frontend | React + Three.js (React Three Fiber) |
-| State Management | Zustand |
+| Frontend | Web Components (vanilla) |
+| 3D Rendering | WebGL (native) |
 | Auth | JWT + Argon2 |
-| Styling | Tailwind CSS |
-| Build | Vite |
+| Styling | Pure CSS |
+| Build/Dev | Vite |
+| Testing | Vitest |
 
 ## File Structure
 
@@ -112,9 +113,9 @@ Code is organized into modular, testable components:
 
 ### Testing Strategy
 
+- Use Vitest for backend unit and integration tests
 - Write tests alongside implementation
-- Organize tests to mirror source structure (`src/foo.ts` → `__tests__/foo.test.ts`)
-- Test files live in a `__tests__` directory at the appropriate level
+- Organize tests to mirror source structure (`src/handlers/auth.ts` → `tests/unit/handlers/auth.test.ts`)
 - Mock external dependencies (especially OpenRouter) to test in isolation
 
 ### Design Decisions
@@ -123,7 +124,7 @@ Code is organized into modular, testable components:
 
 2. **OpenRouter for LLM Access**: Provides unified API to multiple models, allowing each neuron to use a different model while keeping the codebase simple.
 
-3. **Three.js for 3D Editor**: Industry standard for browser 3D graphics, with React Three Fiber for React integration. Neurons rendered as colored spheres with floating name labels.
+3. **Vanilla Web Technologies**: Web Components for UI, native WebGL for 3D, pure CSS for styling. No framework overhead, full control, smaller bundle size.
 
 4. **Step-based Execution Model**: Neurons fire in synchronized steps rather than asynchronously to enable pause/inspect functionality and reproducible execution. Brains "fizzle out" naturally when no neurons have queued inputs.
 

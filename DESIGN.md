@@ -541,12 +541,18 @@ type WSClientMessage =
 | Long-running processes | Durable Objects | Stateful execution, WebSocket support |
 | Configuration storage | Cloudflare KV | Fast reads for brain configs |
 | LLM Provider | OpenRouter | Multi-model access, unified API |
-| Frontend | React + Three.js | 3D graph editor, reactive UI |
-| 3D Rendering | React Three Fiber | React bindings for Three.js |
-| State Management | Zustand | Lightweight, simple |
+| Frontend | Web Components | Native browser APIs, no framework overhead |
+| 3D Rendering | WebGL (native) | Direct GPU access, no library abstraction |
+| Styling | Pure CSS | Standard styling, CSS custom properties for theming |
 | Auth | JWT + Argon2 | Secure, stateless sessions |
-| Styling | Tailwind CSS | Rapid UI development |
-| Build | Vite | Fast development, optimized builds |
+| Build/Dev | Vite | Fast dev server, ES module bundling |
+| Testing | Vitest | Fast unit testing for backend |
+
+### Why Vanilla Web Technologies?
+
+1. **Web Components**: Native browser support, no virtual DOM overhead, true encapsulation with Shadow DOM
+2. **Native WebGL**: Full control over 3D rendering, smaller bundle size, no Three.js abstraction layer
+3. **Pure CSS**: No build step for styles, CSS custom properties for dynamic theming, native cascade
 
 ---
 
@@ -559,20 +565,23 @@ type WSClientMessage =
 ├── DESIGN.md                    # This file
 ├── package.json
 ├── wrangler.toml                # Cloudflare config
+├── vite.config.ts               # Vite config (dev server + build)
+├── vitest.config.ts             # Vitest config (backend tests)
 │
-├── /src
-│   ├── /api                     # Worker API handlers
-│   │   ├── index.ts             # Main router
-│   │   ├── /handlers
-│   │   │   ├── auth.ts          # Login endpoint
-│   │   │   ├── brains.ts        # Brain CRUD
-│   │   │   ├── executions.ts    # Execution control
-│   │   │   └── openai.ts        # OpenAI-compatible endpoint
-│   │   └── /middleware
-│   │       ├── auth.ts          # JWT verification
-│   │       └── cors.ts
+├── /src                         # Backend (Cloudflare Worker)
+│   ├── index.ts                 # Worker entry point, main router
 │   │
-│   ├── /dao                     # Data Access Objects
+│   ├── /handlers
+│   │   ├── auth.ts              # Login endpoint
+│   │   ├── brains.ts            # Brain CRUD
+│   │   ├── executions.ts        # Execution control
+│   │   └── openai.ts            # OpenAI-compatible endpoint
+│   │
+│   ├── /middleware
+│   │   ├── auth.ts              # JWT verification
+│   │   └── cors.ts
+│   │
+│   ├── /dao
 │   │   ├── brain.dao.ts         # Brain CRUD with KV
 │   │   ├── execution.dao.ts     # Execution state with KV
 │   │   └── openrouter.dao.ts    # LLM API interactions
@@ -580,58 +589,69 @@ type WSClientMessage =
 │   ├── /durable-objects
 │   │   └── BrainExecution.ts    # Main execution DO
 │   │
-│   ├── /types                   # TypeScript interfaces
+│   ├── /types
 │   │   ├── brain.ts
 │   │   ├── execution.ts
 │   │   └── api.ts
 │   │
 │   └── /utils
 │       ├── id.ts                # UUID generation
-│       └── auth.ts              # JWT verification
+│       └── auth.ts              # JWT helpers
 │
-├── /web                         # Frontend application
-│   ├── /src
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   │
-│   │   ├── /components
-│   │   │   ├── /editor          # 3D graph editor
-│   │   │   │   ├── Canvas3D.tsx
-│   │   │   │   ├── NeuronSphere.tsx
-│   │   │   │   ├── ConnectionLine.tsx
-│   │   │   │   └── NeuronEditor.tsx
-│   │   │   │
-│   │   │   ├── /chat            # Chat interface
-│   │   │   │   └── ChatView.tsx
-│   │   │   │
-│   │   │   ├── /live            # Live brain view
-│   │   │   │   ├── LiveView.tsx
-│   │   │   │   └── NeuronInspector.tsx
-│   │   │   │
-│   │   │   └── /common
-│   │   │       ├── Layout.tsx
-│   │   │       ├── BrainList.tsx
-│   │   │       └── LoginForm.tsx
-│   │   │
-│   │   ├── /hooks
-│   │   │   ├── useWebSocket.ts
-│   │   │   ├── useBrain.ts
-│   │   │   └── useAuth.ts
-│   │   │
-│   │   ├── /stores
-│   │   │   ├── authStore.ts
-│   │   │   ├── brainStore.ts
-│   │   │   └── executionStore.ts
-│   │   │
-│   │   └── /api
-│   │       └── client.ts        # API client
+├── /web                         # Frontend (Web Components + WebGL)
+│   ├── index.html               # Entry point
+│   ├── main.js                  # App initialization
 │   │
-│   ├── index.html
-│   └── vite.config.ts
+│   ├── /css
+│   │   ├── reset.css            # CSS reset
+│   │   ├── variables.css        # CSS custom properties (theming)
+│   │   ├── layout.css           # Layout styles
+│   │   └── components.css       # Component-specific styles
+│   │
+│   ├── /components              # Web Components
+│   │   ├── app-shell.js         # Main app container
+│   │   ├── brain-list.js        # Sidebar brain list
+│   │   ├── login-form.js        # Auth form
+│   │   │
+│   │   ├── /editor
+│   │   │   ├── brain-editor.js  # 3D graph editor container
+│   │   │   ├── neuron-panel.js  # Right-side neuron editor panel
+│   │   │   └── webgl-canvas.js  # WebGL canvas component
+│   │   │
+│   │   ├── /chat
+│   │   │   └── chat-view.js     # Chat interface
+│   │   │
+│   │   └── /live
+│   │       ├── live-view.js     # Live brain visualization
+│   │       └── neuron-inspector.js  # Neuron state panel
+│   │
+│   ├── /webgl                   # WebGL rendering engine
+│   │   ├── renderer.js          # Main WebGL renderer
+│   │   ├── camera.js            # Camera controls (orbit, pan, zoom)
+│   │   ├── sphere.js            # Sphere geometry + shaders
+│   │   ├── line.js              # Connection line rendering
+│   │   ├── text.js              # Text label rendering (Canvas2D → texture)
+│   │   ├── picking.js           # GPU-based object picking
+│   │   └── shaders/
+│   │       ├── sphere.vert
+│   │       ├── sphere.frag
+│   │       ├── line.vert
+│   │       └── line.frag
+│   │
+│   ├── /lib
+│   │   ├── api-client.js        # API client
+│   │   ├── websocket.js         # WebSocket manager
+│   │   ├── state.js             # Simple reactive state (no library)
+│   │   └── router.js            # Simple hash-based router
+│   │
+│   └── /utils
+│       └── math.js              # Vector/matrix math for WebGL
 │
 └── /tests
-    ├── /api
-    └── /durable-objects
+    ├── /unit                    # Backend unit tests (Vitest)
+    │   ├── dao/
+    │   └── handlers/
+    └── /integration
 ```
 
 ---
