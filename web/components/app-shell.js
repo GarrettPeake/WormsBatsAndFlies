@@ -17,9 +17,23 @@ class AppShell extends HTMLElement {
   }
 
   setupListeners() {
-    // State changes
+    // Only update view when view-related properties change
+    // This prevents recreating WebGL contexts on every state change (e.g., neuron selection)
+    let lastView = null;
+    let lastBrainId = null;
+    let lastExecId = null;
+
     appState.subscribe((state) => {
-      this.updateView(state);
+      const viewChanged = state.currentView !== lastView;
+      const brainChanged = state.currentBrainId !== lastBrainId;
+      const execChanged = state.currentExecId !== lastExecId;
+
+      if (viewChanged || brainChanged || execChanged) {
+        lastView = state.currentView;
+        lastBrainId = state.currentBrainId;
+        lastExecId = state.currentExecId;
+        this.updateView(state);
+      }
     });
 
     // Route changes
