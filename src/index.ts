@@ -41,17 +41,24 @@ app.get('/health', (c) => {
 
 // Catch-all for static files (serve frontend)
 app.get('*', async (c) => {
-  // In production, static files are served from the [site] config in wrangler.toml
-  // This route handles any non-API requests for SPA routing
-  const url = new URL(c.req.url);
+  const pathname = new URL(c.req.url).pathname;
 
   // If it's an API route that wasn't matched, return 404
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/v1/')) {
+  if (pathname.startsWith('/api/') || pathname.startsWith('/v1/')) {
     return c.json({ error: 'Not Found', message: 'Endpoint not found' }, 404);
   }
 
-  // For SPA routing, return a message (actual static serving is handled by wrangler)
-  return c.text('WormsBatsAndFlies - LLM Orchestration System');
+  // Serve static assets using the ASSETS binding
+  const response = await c.env.ASSETS.fetch(c.req.raw);
+
+  // If the asset was found, return it
+  if (response.status !== 404) {
+    return response;
+  }
+
+  // For SPA routing: serve index.html for any non-file routes
+  const indexRequest = new Request(new URL('/index.html', c.req.url), c.req.raw);
+  return c.env.ASSETS.fetch(indexRequest);
 });
 
 // Export the fetch handler
