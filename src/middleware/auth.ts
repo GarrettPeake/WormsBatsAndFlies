@@ -2,13 +2,13 @@
 
 import { Context, Next } from 'hono';
 import { verifyToken, extractBearerToken } from '../utils/auth';
-import type { Env } from '../types';
+import type { Env, ContextVariables } from '../types';
 
 /**
  * Middleware to verify JWT token on protected routes
  */
 export async function authMiddleware(
-  c: Context<{ Bindings: Env }>,
+  c: Context<{ Bindings: Env; Variables: ContextVariables }>,
   next: Next
 ) {
   const authHeader = c.req.header('Authorization');
@@ -40,7 +40,7 @@ export async function authMiddleware(
  * Optional auth middleware - doesn't require token but attaches user if present
  */
 export async function optionalAuthMiddleware(
-  c: Context<{ Bindings: Env }>,
+  c: Context<{ Bindings: Env; Variables: ContextVariables }>,
   next: Next
 ) {
   const authHeader = c.req.header('Authorization');

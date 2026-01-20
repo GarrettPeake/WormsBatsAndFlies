@@ -6,12 +6,13 @@ import { ExecutionDAO } from '../dao/execution.dao';
 import { generateId } from '../utils/id';
 import type {
   Env,
+  ContextVariables,
   ChatCompletionRequest,
   ChatCompletionResponse,
   ChatCompletionChunk,
 } from '../types';
 
-const openai = new Hono<{ Bindings: Env }>();
+const openai = new Hono<{ Bindings: Env; Variables: ContextVariables }>();
 
 /**
  * POST /v1/chat/completions

@@ -3,9 +3,9 @@
 import { Hono } from 'hono';
 import { BrainDAO } from '../dao/brain.dao';
 import { ExecutionDAO } from '../dao/execution.dao';
-import type { Env, StartExecutionInput, SendInputInput } from '../types';
+import type { Env, ContextVariables, StartExecutionInput, SendInputInput } from '../types';
 
-const executions = new Hono<{ Bindings: Env }>();
+const executions = new Hono<{ Bindings: Env; Variables: ContextVariables }>();
 
 /**
  * POST /api/brains/:id/execute
@@ -14,7 +14,12 @@ const executions = new Hono<{ Bindings: Env }>();
 executions.post('/brains/:id/execute', async (c) => {
   try {
     const brainId = c.req.param('id');
-    const body = await c.req.json<StartExecutionInput>().catch(() => ({}));
+    let body: Partial<StartExecutionInput> = {};
+    try {
+      body = await c.req.json<StartExecutionInput>();
+    } catch (e) {
+      // Body is optional, use empty object
+    }
 
     // Get brain config
     const brainDAO = new BrainDAO(c.env.BRAINS_KV);

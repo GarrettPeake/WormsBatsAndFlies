@@ -2,9 +2,9 @@
 
 import { Hono } from 'hono';
 import { createToken, verifyPassword } from '../utils/auth';
-import type { Env, LoginRequest, LoginResponse } from '../types';
+import type { Env, ContextVariables, LoginRequest, LoginResponse } from '../types';
 
-const auth = new Hono<{ Bindings: Env }>();
+const auth = new Hono<{ Bindings: Env; Variables: ContextVariables }>();
 
 /**
  * POST /api/auth/login
