@@ -71,6 +71,32 @@ executions.post('/brains/:id/execute', async (c) => {
 });
 
 /**
+ * GET /api/executions
+ * List all executions (optionally filtered by brainId query param)
+ */
+executions.get('/executions', async (c) => {
+  try {
+    const brainId = c.req.query('brainId');
+
+    const executionDAO = new ExecutionDAO(c.env.EXECUTIONS_KV);
+    const allExecutions = await executionDAO.list(brainId);
+
+    // Sort by startedAt descending (most recent first)
+    allExecutions.sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
+
+    return c.json({ executions: allExecutions });
+  } catch (error) {
+    console.error('List executions error:', error);
+    return c.json(
+      { error: 'Internal Server Error', message: 'Failed to list executions' },
+      500
+    );
+  }
+});
+
+/**
  * GET /api/executions/:execId
  * Get execution state
  */

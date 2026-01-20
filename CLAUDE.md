@@ -53,11 +53,17 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
   - [x] brain-editor.js - 3D graph editor container
   - [x] neuron-panel.js - Neuron properties editor
   - [x] three-canvas.js - Three.js canvas component
-  - [x] chat-view.js - Chat interface
-  - [x] live-view.js - Live brain visualization
+  - [x] chat-view.js - Chat interface (with execution context support)
+  - [x] live-view.js - Live brain visualization (with chat navigation)
   - [x] neuron-inspector.js - Neuron state inspector
+  - [x] executions-panel.js - Active executions list and management
 - [x] HTML entry point (index.html) and main.js
 - [x] Unit tests for utilities and DAOs
+- [x] Execution Management:
+  - [x] List all active executions
+  - [x] Open executions in live view or chat view
+  - [x] Pause/resume executions from any view
+  - [x] Maintain execution context when switching between chat and live views
 
 ### Not Yet Implemented
 
@@ -141,6 +147,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │   ├── app-shell.js
 │   │   ├── brain-list.js
 │   │   ├── login-form.js
+│   │   ├── executions-panel.js  # Active executions management
 │   │   │
 │   │   ├── /editor
 │   │   │   ├── brain-editor.js
@@ -227,6 +234,7 @@ DELETE /api/brains/:id/connections/:cId  # Delete connection
 
 ### Execution Control
 ```
+GET  /api/executions                   # List all executions (optional ?brainId filter)
 POST /api/brains/:id/execute           # Start execution
 GET  /api/executions/:execId           # Get execution state
 POST /api/executions/:execId/pause     # Pause execution

@@ -6,7 +6,7 @@ import { router } from '../../lib/router.js';
 
 class ChatView extends HTMLElement {
   static get observedAttributes() {
-    return ['brain-id'];
+    return ['brain-id', 'exec-id'];
   }
 
   constructor() {
@@ -17,6 +17,7 @@ class ChatView extends HTMLElement {
     this.execution = null;
     this.ws = null;
     this.isLoading = false;
+    this.isPaused = false;
   }
 
   connectedCallback() {
@@ -31,8 +32,12 @@ class ChatView extends HTMLElement {
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    if (name === 'brain-id' && oldValue !== newValue) {
-      this.loadBrain();
+    if (oldValue !== newValue) {
+      if (name === 'brain-id') {
+        this.loadBrain();
+      } else if (name === 'exec-id' && newValue) {
+        this.loadExecution(newValue);
+      }
     }
   }
 
@@ -43,15 +48,106 @@ class ChatView extends HTMLElement {
     try {
       this.brain = await api.getBrain(brainId);
       this.updateHeader();
+
+      // Check if there's an exec-id to load
+      const execId = this.getAttribute('exec-id');
+      if (execId) {
+        this.loadExecution(execId);
+      }
     } catch (error) {
       console.error('Failed to load brain:', error);
     }
+  }
+
+  async loadExecution(execId) {
+    try {
+      this.execution = await api.getExecution(execId);
+      this.isPaused = this.execution.status === 'paused';
+      this.updateControls();
+      this.connectWebSocket();
+    } catch (error) {
+      console.error('Failed to load execution:', error);
+    }
+  }
+
+  connectWebSocket() {
+    if (!this.execution) return;
+
+    if (this.ws) {
+      this.ws.disconnect();
+    }
+
+    this.ws = new ExecutionWebSocket(this.execution.id, api.getToken());
+
+    this.ws.on('execution_paused', () => {
+      this.isPaused = true;
+      if (this.execution) this.execution.status = 'paused';
+      this.updateControls();
+    });
+
+    this.ws.on('execution_resumed', () => {
+      this.isPaused = false;
+      if (this.execution) this.execution.status = 'running';
+      this.updateControls();
+    });
+
+    this.ws.on('final_output', (data) => {
+      // Handle final output if we're connected to an existing execution
+      if (this.messages.length > 0) {
+        const lastAssistantMsg = this.messages.filter(m => m.role === 'assistant').pop();
+        if (lastAssistantMsg && lastAssistantMsg.isStreaming) {
+          this.updateMessage(lastAssistantMsg.id, data.content, false);
+        }
+      }
+    });
+
+    this.ws.on('execution_fizzled', () => {
+      this.isLoading = false;
+      this.updateInputState();
+    });
+
+    this.ws.connect();
   }
 
   updateHeader() {
     const header = this.shadowRoot.querySelector('.chat-header h2');
     if (header && this.brain) {
       header.textContent = `Chat with ${this.brain.name}`;
+    }
+  }
+
+  updateControls() {
+    const pauseBtn = this.shadowRoot.querySelector('#pause-btn');
+    if (!pauseBtn) return;
+
+    if (!this.execution) {
+      pauseBtn.style.display = 'none';
+      return;
+    }
+
+    pauseBtn.style.display = 'inline-flex';
+    pauseBtn.innerHTML = this.isPaused
+      ? `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume`
+      : `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+  }
+
+  async togglePause() {
+    if (!this.execution) return;
+
+    try {
+      if (this.isPaused) {
+        await api.resumeExecution(this.execution.id);
+        this.isPaused = false;
+        this.execution.status = 'running';
+      } else {
+        await api.pauseExecution(this.execution.id);
+        this.isPaused = true;
+        this.execution.status = 'paused';
+      }
+      this.updateControls();
+      window.dispatchEvent(new CustomEvent('executions:refresh'));
+    } catch (error) {
+      console.error('Failed to toggle pause:', error);
     }
   }
 
@@ -74,7 +170,20 @@ class ChatView extends HTMLElement {
         initialInput: content,
       });
 
+      // Update URL to include execution ID
+      router.navigate(`/brains/${this.brain.id}/chat/${this.execution.id}`);
+
+      // Notify executions panel
+      window.dispatchEvent(new CustomEvent('executions:refresh'));
+
+      // Update controls to show pause button
+      this.isPaused = false;
+      this.updateControls();
+
       // Connect WebSocket for streaming updates
+      if (this.ws) {
+        this.ws.disconnect();
+      }
       this.ws = new ExecutionWebSocket(this.execution.id, api.getToken());
 
       let assistantMessage = '';
@@ -85,18 +194,29 @@ class ChatView extends HTMLElement {
         this.updateMessage(messageId, assistantMessage);
       });
 
+      this.ws.on('execution_paused', () => {
+        this.isPaused = true;
+        if (this.execution) this.execution.status = 'paused';
+        this.updateControls();
+      });
+
+      this.ws.on('execution_resumed', () => {
+        this.isPaused = false;
+        if (this.execution) this.execution.status = 'running';
+        this.updateControls();
+      });
+
       this.ws.on('execution_fizzled', () => {
         this.isLoading = false;
         this.updateInputState();
         this.updateMessage(messageId, assistantMessage, false);
-        this.ws.disconnect();
+        window.dispatchEvent(new CustomEvent('executions:refresh'));
       });
 
       this.ws.on('error', (error) => {
         console.error('WebSocket error:', error);
         this.isLoading = false;
         this.updateInputState();
-        this.ws.disconnect();
       });
 
       this.ws.connect();
@@ -326,6 +446,13 @@ class ChatView extends HTMLElement {
         <header class="chat-header">
           <h2>Chat with Brain</h2>
           <div class="chat-header__actions">
+            <button class="btn btn--secondary" id="pause-btn" style="display: none;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="4" width="4" height="16"/>
+                <rect x="14" y="4" width="4" height="16"/>
+              </svg>
+              Pause
+            </button>
             <button class="btn btn--secondary" id="edit-btn">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -386,6 +513,11 @@ class ChatView extends HTMLElement {
       input.style.height = Math.min(input.scrollHeight, 200) + 'px';
     });
 
+    // Pause button
+    this.shadowRoot.getElementById('pause-btn').addEventListener('click', () => {
+      this.togglePause();
+    });
+
     // Navigation buttons
     this.shadowRoot.getElementById('edit-btn').addEventListener('click', () => {
       if (this.brain) {
@@ -395,7 +527,12 @@ class ChatView extends HTMLElement {
 
     this.shadowRoot.getElementById('live-btn').addEventListener('click', () => {
       if (this.brain) {
-        router.navigate(`/brains/${this.brain.id}/live`);
+        // Maintain execution context when switching to live view
+        if (this.execution) {
+          router.navigate(`/brains/${this.brain.id}/live/${this.execution.id}`);
+        } else {
+          router.navigate(`/brains/${this.brain.id}/live`);
+        }
       }
     });
   }

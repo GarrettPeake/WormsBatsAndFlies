@@ -218,12 +218,19 @@ class LiveView extends HTMLElement {
   updateControls() {
     const pauseBtn = this.shadowRoot.querySelector('#pause-btn');
     const stepBtn = this.shadowRoot.querySelector('#step-btn');
+    const startBtn = this.shadowRoot.querySelector('#start-btn');
 
     if (!this.execution) {
       if (pauseBtn) pauseBtn.style.display = 'none';
       if (stepBtn) stepBtn.style.display = 'none';
+      if (startBtn) startBtn.style.display = 'inline-flex';
       return;
     }
+
+    // Hide start button, show pause button when execution exists
+    if (startBtn) startBtn.style.display = 'none';
+    if (pauseBtn) pauseBtn.style.display = 'inline-flex';
+    if (stepBtn) stepBtn.style.display = 'inline-flex';
 
     const isPaused = this.execution.status === 'paused';
 
@@ -274,6 +281,8 @@ class LiveView extends HTMLElement {
       this.connectWebSocket();
       this.updateControls();
       router.navigate(`/brains/${this.brain.id}/live/${this.execution.id}`);
+      // Notify executions panel of new execution
+      window.dispatchEvent(new CustomEvent('executions:refresh'));
     } catch (error) {
       console.error('Failed to start execution:', error);
     }
@@ -291,6 +300,8 @@ class LiveView extends HTMLElement {
         this.execution.status = 'paused';
       }
       this.updateControls();
+      // Notify executions panel of status change
+      window.dispatchEvent(new CustomEvent('executions:refresh'));
     } catch (error) {
       console.error('Failed to toggle pause:', error);
     }
@@ -441,6 +452,12 @@ class LiveView extends HTMLElement {
             </button>
             <button class="btn btn--secondary" id="step-btn" disabled>Step</button>
             <button class="btn btn--secondary" id="input-btn">Send Input</button>
+            <button class="btn btn--secondary" id="chat-btn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Chat
+            </button>
             <button class="btn btn--ghost" id="edit-btn">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -470,6 +487,16 @@ class LiveView extends HTMLElement {
     this.shadowRoot.getElementById('pause-btn').addEventListener('click', () => this.togglePause());
     this.shadowRoot.getElementById('step-btn').addEventListener('click', () => this.manualStep());
     this.shadowRoot.getElementById('input-btn').addEventListener('click', () => this.sendInput());
+    this.shadowRoot.getElementById('chat-btn').addEventListener('click', () => {
+      if (this.brain) {
+        // Maintain execution context when switching to chat view
+        if (this.execution) {
+          router.navigate(`/brains/${this.brain.id}/chat/${this.execution.id}`);
+        } else {
+          router.navigate(`/brains/${this.brain.id}/chat`);
+        }
+      }
+    });
     this.shadowRoot.getElementById('edit-btn').addEventListener('click', () => {
       if (this.brain) {
         router.navigate(`/brains/${this.brain.id}/edit`);

@@ -10,6 +10,7 @@ import './components/editor/three-canvas.js';
 import './components/chat/chat-view.js';
 import './components/live/live-view.js';
 import './components/live/neuron-inspector.js';
+import './components/executions-panel.js';
 
 // Remove loading state once components are registered
 document.addEventListener('DOMContentLoaded', () => {
