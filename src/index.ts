@@ -7,13 +7,13 @@ import authHandlers from './handlers/auth';
 import brainsHandlers from './handlers/brains';
 import executionsHandlers from './handlers/executions';
 import openaiHandlers from './handlers/openai';
-import type { Env } from './types';
+import type { Env, ContextVariables } from './types';
 
 // Re-export Durable Object for Cloudflare
 export { BrainExecution } from './durable-objects/BrainExecution';
 
 // Create main app
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env; Variables: ContextVariables }>();
 
 // Apply CORS middleware to all routes
 app.use('*', corsMiddleware);

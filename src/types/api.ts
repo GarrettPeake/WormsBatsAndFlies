@@ -105,3 +105,8 @@ export interface Env {
   OPENROUTER_API_KEY: string;
   ENVIRONMENT: string;
 }
+
+// Context variables
+export interface ContextVariables {
+  user?: AuthPayload;
+}

@@ -2,9 +2,9 @@
 
 import { Hono } from 'hono';
 import { BrainDAO } from '../dao/brain.dao';
-import type { Env, CreateBrainInput, UpdateBrainInput } from '../types';
+import type { Env, ContextVariables, CreateBrainInput, UpdateBrainInput } from '../types';
 
-const brains = new Hono<{ Bindings: Env }>();
+const brains = new Hono<{ Bindings: Env; Variables: ContextVariables }>();
 
 /**
  * GET /api/brains
