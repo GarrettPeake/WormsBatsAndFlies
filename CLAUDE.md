@@ -52,7 +52,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
   - [x] login-form.js - Authentication form
   - [x] brain-editor.js - 3D graph editor container
   - [x] neuron-panel.js - Neuron properties editor
-  - [x] webgl-canvas.js - WebGL canvas component
+  - [x] three-canvas.js - Three.js canvas component
   - [x] chat-view.js - Chat interface
   - [x] live-view.js - Live brain visualization
   - [x] neuron-inspector.js - Neuron state inspector
@@ -145,7 +145,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │   ├── /editor
 │   │   │   ├── brain-editor.js
 │   │   │   ├── neuron-panel.js
-│   │   │   └── webgl-canvas.js
+│   │   │   └── three-canvas.js
 │   │   │
 │   │   ├── /chat
 │   │   │   └── chat-view.js
@@ -154,7 +154,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │       ├── live-view.js
 │   │       └── neuron-inspector.js
 │   │
-│   ├── /webgl
+│   ├── /three
 │   │   └── renderer.js          # Three.js renderer
 │   │
 │   └── /lib

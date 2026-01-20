@@ -2,7 +2,7 @@
 
 import { api } from '../../lib/api-client.js';
 import { ExecutionWebSocket } from '../../lib/websocket.js';
-import { Renderer } from '../../webgl/renderer.js';
+import { Renderer } from '../../three/renderer.js';
 import { router } from '../../lib/router.js';
 
 class LiveView extends HTMLElement {
