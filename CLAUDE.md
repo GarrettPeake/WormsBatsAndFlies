@@ -22,36 +22,57 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [x] Initial repository setup
 - [x] README.md created
 - [x] CLAUDE.md documentation established
-- [x] DESIGN.md comprehensive design document with:
-  - Philosophical foundation (Anathem reference)
-  - Data models (Brain, Neuron, Connection, Execution states)
-  - API specification (REST + WebSocket)
-  - OpenAI-compatible endpoint specification
-  - Interface wireframes (3D sphere editor, chat, live view)
-  - Tech stack decisions
-  - File structure planning
-  - Neuron prompt template with memory windowing
-  - Security considerations
+- [x] DESIGN.md comprehensive design document
+- [x] Project scaffolding (package.json, wrangler.toml, tsconfig.json, vite.config.ts, vitest.config.ts)
+- [x] TypeScript type definitions (brain.ts, execution.ts, api.ts)
+- [x] Utility functions (id.ts for UUID generation, auth.ts for JWT handling)
+- [x] Data Access Objects:
+  - [x] brain.dao.ts - Brain CRUD operations with KV
+  - [x] execution.dao.ts - Execution state persistence with KV
+  - [x] openrouter.dao.ts - LLM API interactions
+- [x] Middleware (auth.ts for JWT verification, cors.ts for CORS handling)
+- [x] API Handlers:
+  - [x] auth.ts - Login endpoint with JWT tokens
+  - [x] brains.ts - Brain CRUD, neuron/connection management
+  - [x] executions.ts - Execution control (start, pause, resume, step, input)
+  - [x] openai.ts - OpenAI-compatible /v1/chat/completions endpoint
+- [x] Durable Object (BrainExecution.ts) for managing execution runtime
+- [x] Worker entry point and router (index.ts)
+- [x] CSS files (reset.css, variables.css, layout.css, components.css)
+- [x] WebGL rendering engine:
+  - [x] renderer.js - Main renderer
+  - [x] camera.js - Orbit camera controls
+  - [x] sphere.js - Sphere geometry and rendering
+  - [x] line.js - Connection line/arrow rendering
+  - [x] text.js - Text label rendering via Canvas 2D textures
+  - [x] picking.js - GPU-based object picking
+- [x] Frontend library utilities:
+  - [x] api-client.js - API client for backend communication
+  - [x] websocket.js - WebSocket manager for live streaming
+  - [x] state.js - Simple reactive state management
+  - [x] router.js - Hash-based client-side router
+- [x] Web Components:
+  - [x] app-shell.js - Main application container
+  - [x] brain-list.js - Sidebar brain list
+  - [x] login-form.js - Authentication form
+  - [x] brain-editor.js - 3D graph editor container
+  - [x] neuron-panel.js - Neuron properties editor
+  - [x] webgl-canvas.js - WebGL canvas component
+  - [x] chat-view.js - Chat interface
+  - [x] live-view.js - Live brain visualization
+  - [x] neuron-inspector.js - Neuron state inspector
+- [x] HTML entry point (index.html) and main.js
+- [x] Unit tests for utilities and DAOs
 
 ### Not Yet Implemented
 
-- [ ] Project scaffolding (package.json, wrangler.toml, tsconfig)
-- [ ] TypeScript type definitions
-- [ ] Cloudflare Worker API handlers
-- [ ] Durable Object for brain execution
-- [ ] OpenRouter DAO for LLM interactions
-- [ ] KV storage for brain configurations and execution state
-- [ ] Single admin authentication (env secrets + JWT)
-- [ ] Web Components frontend
-- [ ] WebGL 3D graph editor (spheres with name labels)
-- [ ] Chat interface
-- [ ] Live brain view with neuron status indicators
-- [ ] WebSocket streaming
-- [ ] OpenAI-compatible /v1/chat/completions endpoint
+- [ ] Integration tests
+- [ ] E2E tests
+- [ ] Production deployment configuration
+- [ ] Admin password setup script
+- [ ] Brain templates/examples
 
 ## Tech Stack
-
-See DESIGN.md for complete rationale.
 
 | Layer | Technology |
 |-------|------------|
@@ -61,38 +82,197 @@ See DESIGN.md for complete rationale.
 | LLM Provider | OpenRouter |
 | Frontend | Web Components (vanilla) |
 | 3D Rendering | WebGL (native) |
-| Auth | JWT + Argon2 |
+| Auth | JWT + SHA-256 |
 | Styling | Pure CSS |
 | Build/Dev | Vite |
 | Testing | Vitest |
+| HTTP Framework | Hono |
 
 ## File Structure
 
 ```
 /WormsBatsAndFlies
-├── README.md             # Project overview
-├── CLAUDE.md             # This file (current state)
-└── DESIGN.md             # Complete design specification
+├── README.md
+├── CLAUDE.md
+├── DESIGN.md
+├── package.json
+├── wrangler.toml
+├── tsconfig.json
+├── vite.config.ts
+├── vitest.config.ts
+│
+├── /src                         # Backend (Cloudflare Worker)
+│   ├── index.ts                 # Worker entry point, main router
+│   │
+│   ├── /handlers
+│   │   ├── auth.ts              # Login endpoint
+│   │   ├── brains.ts            # Brain CRUD
+│   │   ├── executions.ts        # Execution control
+│   │   └── openai.ts            # OpenAI-compatible endpoint
+│   │
+│   ├── /middleware
+│   │   ├── auth.ts              # JWT verification
+│   │   └── cors.ts              # CORS handling
+│   │
+│   ├── /dao
+│   │   ├── brain.dao.ts         # Brain CRUD with KV
+│   │   ├── execution.dao.ts     # Execution state with KV
+│   │   └── openrouter.dao.ts    # LLM API interactions
+│   │
+│   ├── /durable-objects
+│   │   └── BrainExecution.ts    # Execution runtime DO
+│   │
+│   ├── /types
+│   │   ├── index.ts
+│   │   ├── brain.ts
+│   │   ├── execution.ts
+│   │   └── api.ts
+│   │
+│   └── /utils
+│       ├── id.ts                # UUID generation
+│       └── auth.ts              # JWT helpers
+│
+├── /web                         # Frontend
+│   ├── index.html               # Entry point
+│   ├── main.js                  # App initialization
+│   │
+│   ├── /css
+│   │   ├── reset.css
+│   │   ├── variables.css
+│   │   ├── layout.css
+│   │   └── components.css
+│   │
+│   ├── /components
+│   │   ├── app-shell.js
+│   │   ├── brain-list.js
+│   │   ├── login-form.js
+│   │   │
+│   │   ├── /editor
+│   │   │   ├── brain-editor.js
+│   │   │   ├── neuron-panel.js
+│   │   │   └── webgl-canvas.js
+│   │   │
+│   │   ├── /chat
+│   │   │   └── chat-view.js
+│   │   │
+│   │   └── /live
+│   │       ├── live-view.js
+│   │       └── neuron-inspector.js
+│   │
+│   ├── /webgl
+│   │   ├── renderer.js
+│   │   ├── camera.js
+│   │   ├── sphere.js
+│   │   ├── line.js
+│   │   ├── text.js
+│   │   └── picking.js
+│   │
+│   ├── /lib
+│   │   ├── api-client.js
+│   │   ├── websocket.js
+│   │   ├── state.js
+│   │   └── router.js
+│   │
+│   └── /utils
+│       └── math.js
+│
+└── /tests
+    └── /unit
+        ├── /dao
+        │   ├── brain.dao.test.ts
+        │   └── openrouter.dao.test.ts
+        └── /utils
+            ├── id.test.ts
+            └── auth.test.ts
 ```
 
 ## Development Commands
 
 ```bash
-# Add development commands as they are established
+# Install dependencies
+npm install
+
+# Run Cloudflare Worker locally
+npm run dev
+
+# Run frontend dev server (with proxy to worker)
+npm run dev:web
+
+# Build for production
+npm run build
+
+# Deploy to Cloudflare
+npm run deploy
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Type check
+npm run typecheck
+```
+
+## API Endpoints
+
+### Authentication
+```
+POST /api/auth/login     # Login with username/password, returns JWT
+GET  /api/auth/verify    # Verify current token (protected)
+```
+
+### Brain Management
+```
+GET    /api/brains              # List all brains
+POST   /api/brains              # Create new brain
+GET    /api/brains/:id          # Get brain config
+PUT    /api/brains/:id          # Update brain config
+DELETE /api/brains/:id          # Delete brain
+
+POST   /api/brains/:id/neurons           # Add neuron
+PUT    /api/brains/:id/neurons/:nId      # Update neuron
+DELETE /api/brains/:id/neurons/:nId      # Delete neuron
+
+POST   /api/brains/:id/connections       # Add connection
+DELETE /api/brains/:id/connections/:cId  # Delete connection
+```
+
+### Execution Control
+```
+POST /api/brains/:id/execute           # Start execution
+GET  /api/executions/:execId           # Get execution state
+POST /api/executions/:execId/pause     # Pause execution
+POST /api/executions/:execId/resume    # Resume execution
+POST /api/executions/:execId/step      # Manual single step
+POST /api/executions/:execId/input     # Send new input
+WS   /api/executions/:execId/stream    # WebSocket for live updates
+```
+
+### OpenAI-Compatible
+```
+POST /v1/chat/completions   # OpenAI-compatible chat endpoint
+GET  /v1/models             # List available brains as models
+```
+
+## Environment Secrets
+
+Set these via `wrangler secret put` or Cloudflare dashboard:
+
+```
+ADMIN_USERNAME       # Admin username
+ADMIN_PASSWORD_HASH  # SHA-256 hash of admin password
+JWT_SECRET           # Secret for JWT signing
+OPENROUTER_API_KEY   # OpenRouter API key
+```
+
+To generate a password hash:
+```javascript
+const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('your-password'));
+console.log(Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join(''));
 ```
 
 ## Architecture Patterns
-
-This project follows established architectural patterns to ensure maintainability and testability.
-
-### Code Organization Requirements
-
-**IMPORTANT:** All code must maintain clear separation of concerns:
-
-- **HTML** files should only contain markup
-- **JavaScript/TypeScript** must be in separate files
-- **CSS** must be in separate `.css` files
-- HTML files should only reference external JS/CSS via `<link>` and `<script>` tags
 
 ### Backend Architecture
 
@@ -106,33 +286,43 @@ Code is organized into modular, testable components:
 **Handlers**
 - Request handlers split by domain (auth, brains, executions, openai)
 - Handlers orchestrate between DAOs and return responses
+- Uses Hono framework for routing
 
 **Durable Objects**
 - `BrainExecution.ts`: Manages active execution, WebSocket connections, step processing
 - State persisted to KV when paused/disconnected, loaded on resume
 
-### Testing Strategy
+### Frontend Architecture
 
-- Use Vitest for backend unit and integration tests
-- Write tests alongside implementation
-- Organize tests to mirror source structure (`src/handlers/auth.ts` → `tests/unit/handlers/auth.test.ts`)
-- Mock external dependencies (especially OpenRouter) to test in isolation
+**Web Components**
+- Custom elements for each UI component
+- Shadow DOM for style encapsulation
+- No framework dependencies
+
+**State Management**
+- Simple reactive store pattern
+- Centralized app state with subscription model
+
+**WebGL Rendering**
+- Native WebGL2 for 3D visualization
+- GPU-based object picking for interaction
+- Billboard text labels using Canvas 2D textures
 
 ### Design Decisions
 
-1. **Cloudflare Durable Objects for Execution**: Chosen for stateful WebSocket connections and long-running process support without traditional server infrastructure.
+1. **Cloudflare Durable Objects for Execution**: Stateful WebSocket connections and long-running process support without traditional server infrastructure.
 
-2. **OpenRouter for LLM Access**: Provides unified API to multiple models, allowing each neuron to use a different model while keeping the codebase simple.
+2. **OpenRouter for LLM Access**: Unified API to multiple models, allowing each neuron to use a different model.
 
-3. **Vanilla Web Technologies**: Web Components for UI, native WebGL for 3D, pure CSS for styling. No framework overhead, full control, smaller bundle size.
+3. **Vanilla Web Technologies**: Web Components, native WebGL, pure CSS. No framework overhead, full control, smaller bundle size.
 
-4. **Step-based Execution Model**: Neurons fire in synchronized steps rather than asynchronously to enable pause/inspect functionality and reproducible execution. Brains "fizzle out" naturally when no neurons have queued inputs.
+4. **Step-based Execution Model**: Neurons fire in synchronized steps for pause/inspect functionality and reproducible execution.
 
-5. **Memory Windowing**: Each neuron has a `memoryLength` parameter. Only the last N memory entries are included in prompts, preventing unbounded context growth while still accumulating history.
+5. **Memory Windowing**: Each neuron only includes the last N memory entries in prompts, preventing unbounded context growth.
 
-6. **Single Admin User**: V1 uses hardcoded admin credentials in environment secrets. No user registration or multi-tenancy.
+6. **Single Admin User**: V1 uses hardcoded admin credentials in environment secrets. No multi-tenancy.
 
-7. **Dumb Connections**: Connections are simple directed edges with no weights or labels. They just pass output from source to target's input queue.
+7. **Dumb Connections**: Connections are simple directed edges with no weights or labels.
 
 ### Coding Standards
 
@@ -156,46 +346,9 @@ Code is organized into modular, testable components:
 3. **Update the "File Structure"** section when new files are added
 4. **Document new patterns or conventions** in the appropriate sections
 5. **Update "Tech Stack"** when new technologies are introduced
-6. **Add new API endpoints** to documentation (if applicable)
+6. **Add new API endpoints** to documentation
 7. **Keep "Not Yet Implemented"** current with planned work
 
-### Why This Matters
-
-CLAUDE.md serves as the single source of truth for:
-- What currently exists in the codebase (not what's planned)
-- How the code is organized and why
-- Development practices and patterns in use
-- The current state of implementation
-
-This ensures anyone (human or AI) can quickly understand the project without reading through the entire codebase.
-
-### What Belongs in CLAUDE.md vs. Other Docs
-
-- **CLAUDE.md**: Current state, architecture, patterns, what exists NOW
-- **README.md**: Project overview, setup instructions, user-facing documentation
-- **DESIGN.md**: End goals, future vision, complete specification, data models
-
-Keep these documents in sync but focused on their specific purposes.
-
 ---
 
-## Quick Reference
-
-### Before Starting Work
-
-1. Read this CLAUDE.md file completely
-2. Read DESIGN.md for the full specification
-3. Review the current file structure
-4. Check "Not Yet Implemented" for related work
-
-### After Completing Work
-
-1. Update "Implemented" checklist
-2. Remove from "Not Yet Implemented" if applicable
-3. Update file structure if files were added/moved/deleted
-4. Document new patterns or design decisions
-5. Update relevant sections (API endpoints, commands, etc.)
-
----
-
-*This file was last updated: 2026-01-19*
+*This file was last updated: 2026-01-20*
