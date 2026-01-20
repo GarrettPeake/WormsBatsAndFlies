@@ -38,6 +38,10 @@ export class LineRenderer {
 
     gl.bindVertexArray(null);
 
+    // Pre-allocate reusable arrays to avoid GC pressure
+    this._positions = new Float32Array(this.maxLines * 6);
+    this._colors = new Float32Array(this.maxLines * 6);
+
     // Get uniform locations
     this.uniforms = {
       uViewProjection: gl.getUniformLocation(this.program, 'uViewProjection'),
@@ -99,9 +103,9 @@ export class LineRenderer {
     const gl = this.gl;
     const lineCount = Math.min(lines.length, this.maxLines);
 
-    // Build position and color arrays
-    const positions = new Float32Array(lineCount * 6);
-    const colors = new Float32Array(lineCount * 6);
+    // Reuse pre-allocated arrays to avoid GC pressure
+    const positions = this._positions;
+    const colors = this._colors;
 
     for (let i = 0; i < lineCount; i++) {
       const line = lines[i];
@@ -123,12 +127,12 @@ export class LineRenderer {
       colors[offset + 5] = rgb[2];
     }
 
-    // Upload data
+    // Upload only the data we need (subarray view, no allocation)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions.subarray(0, lineCount * 6));
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors.subarray(0, lineCount * 6));
 
     // Render
     gl.useProgram(this.program);

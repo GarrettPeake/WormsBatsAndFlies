@@ -36,6 +36,15 @@ export class Renderer {
     this.onNeuronSelect = null;
     this.onNeuronHover = null;
 
+    // Bound event handlers (stored for cleanup)
+    this._boundOnClick = this.onClick.bind(this);
+    this._boundOnMouseMove = this.onMouseMove.bind(this);
+    this._boundOnResize = this.resize.bind(this);
+
+    // Throttle state for mousemove picking
+    this._lastPickTime = 0;
+    this._pickThrottleMs = 50; // Max 20 picks per second
+
     this.init();
   }
 
@@ -56,12 +65,12 @@ export class Renderer {
     this.picking = new Picking(gl, this.canvas.width, this.canvas.height);
 
     // Set up event listeners
-    this.canvas.addEventListener('click', this.onClick.bind(this));
-    this.canvas.addEventListener('mousemove', this.onMouseMove.bind(this));
+    this.canvas.addEventListener('click', this._boundOnClick);
+    this.canvas.addEventListener('mousemove', this._boundOnMouseMove);
 
     // Handle resize
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', this._boundOnResize);
   }
 
   resize() {
@@ -142,9 +151,16 @@ export class Renderer {
   }
 
   /**
-   * Handle mouse move for hover
+   * Handle mouse move for hover (throttled to prevent excessive GPU work)
    */
   onMouseMove(e) {
+    // Throttle picking to avoid excessive GPU readbacks
+    const now = performance.now();
+    if (now - this._lastPickTime < this._pickThrottleMs) {
+      return;
+    }
+    this._lastPickTime = now;
+
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (this.canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (this.canvas.height / rect.height);
@@ -310,6 +326,13 @@ export class Renderer {
    */
   destroy() {
     this.stop();
+
+    // Remove event listeners to prevent memory leaks
+    this.canvas.removeEventListener('click', this._boundOnClick);
+    this.canvas.removeEventListener('mousemove', this._boundOnMouseMove);
+    window.removeEventListener('resize', this._boundOnResize);
+
+    // Clean up WebGL resources
     this.picking.destroy();
     this.textRenderer.clearCache();
   }
