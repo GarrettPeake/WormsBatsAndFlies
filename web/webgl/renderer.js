@@ -43,6 +43,10 @@ export class Renderer {
     this.neuronMeshes = new Map(); // neuronId -> mesh
     this.connectionLines = [];
     this.labelSprites = new Map(); // neuronId -> sprite
+    this.sharedGeometry = null; // Shared sphere geometry for all neurons
+
+    // Reusable objects to avoid per-frame allocations
+    this._tempColor = new THREE.Color();
 
     // Animation state
     this.animationFrame = null;
@@ -126,13 +130,18 @@ export class Renderer {
    * Rebuild the entire scene with current neurons
    */
   rebuildScene() {
-    // Clear existing neuron meshes
+    // Clear existing neuron meshes (dispose materials only, not shared geometry)
     for (const mesh of this.neuronMeshes.values()) {
       this.scene.remove(mesh);
-      mesh.geometry.dispose();
       mesh.material.dispose();
     }
     this.neuronMeshes.clear();
+
+    // Dispose old shared geometry once
+    if (this.sharedGeometry) {
+      this.sharedGeometry.dispose();
+      this.sharedGeometry = null;
+    }
 
     // Clear existing labels
     for (const sprite of this.labelSprites.values()) {
@@ -142,8 +151,8 @@ export class Renderer {
     }
     this.labelSprites.clear();
 
-    // Create new meshes
-    const geometry = new THREE.SphereGeometry(0.5, 32, 24);
+    // Create shared geometry for all neuron meshes
+    this.sharedGeometry = new THREE.SphereGeometry(0.5, 32, 24);
 
     for (const neuron of this.neurons) {
       const color = new THREE.Color(neuron.color || '#6366f1');
@@ -154,7 +163,7 @@ export class Renderer {
         emissive: new THREE.Color(0x000000),
       });
 
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(this.sharedGeometry, material);
       mesh.position.set(neuron.position.x, neuron.position.y, neuron.position.z);
       mesh.userData.neuronId = neuron.id;
 
@@ -300,7 +309,8 @@ export class Renderer {
       if (!mesh) continue;
 
       const material = mesh.material;
-      const baseColor = new THREE.Color(neuron.color || '#6366f1');
+      // Reuse temp color to avoid allocations every frame
+      this._tempColor.set(neuron.color || '#6366f1');
 
       let emissiveIntensity = 0;
 
@@ -316,7 +326,7 @@ export class Renderer {
         emissiveIntensity = 0.4;
       }
 
-      material.emissive.copy(baseColor).multiplyScalar(emissiveIntensity);
+      material.emissive.copy(this._tempColor).multiplyScalar(emissiveIntensity);
     }
   }
 
@@ -462,9 +472,14 @@ export class Renderer {
     // Dispose controls
     this.controls.dispose();
 
-    // Dispose all meshes and materials
+    // Dispose shared geometry once
+    if (this.sharedGeometry) {
+      this.sharedGeometry.dispose();
+      this.sharedGeometry = null;
+    }
+
+    // Dispose all mesh materials (geometry already disposed above)
     for (const mesh of this.neuronMeshes.values()) {
-      mesh.geometry.dispose();
       mesh.material.dispose();
     }
 
