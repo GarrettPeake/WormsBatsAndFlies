@@ -33,7 +33,8 @@ export class ExecutionWebSocket {
    */
   connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/api/executions/${this.execId}/stream`;
+    // WebSocket connections can't send Authorization headers, so we pass the token as a query parameter
+    const url = `${protocol}//${window.location.host}/api/executions/${this.execId}/stream?token=${encodeURIComponent(this.token)}`;
 
     this.ws = new WebSocket(url);
 

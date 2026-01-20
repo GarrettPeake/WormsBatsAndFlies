@@ -294,6 +294,14 @@ export class BrainExecution implements DurableObject {
   }
 
   /**
+   * Handle WebSocket error
+   */
+  async webSocketError(ws: WebSocket, error: unknown) {
+    console.error('WebSocket error:', error);
+    this.connectedClients.delete(ws);
+  }
+
+  /**
    * Pause execution
    */
   private async handlePause(): Promise<Response> {
