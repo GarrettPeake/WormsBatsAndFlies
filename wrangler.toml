@@ -1,0 +1,34 @@
+name = "worms-bats-and-flies"
+main = "src/index.ts"
+compatibility_date = "2024-05-12"
+
+[vars]
+ENVIRONMENT = "development"
+
+# KV Namespaces for brain configs and execution state
+[[kv_namespaces]]
+binding = "BRAINS_KV"
+id = "YOUR_KV_ID_HERE"
+
+[[kv_namespaces]]
+binding = "EXECUTIONS_KV"
+id = "YOUR_KV_ID_HERE"
+
+# Durable Objects for execution runtime
+[[durable_objects.bindings]]
+name = "BRAIN_EXECUTION"
+class_name = "BrainExecution"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["BrainExecution"]
+
+# Static assets for the web frontend
+[site]
+bucket = "./web"
+
+# Environment secrets (set via wrangler secret put or dashboard)
+# ADMIN_USERNAME
+# ADMIN_PASSWORD_HASH (Argon2 hash)
+# JWT_SECRET
+# OPENROUTER_API_KEY
