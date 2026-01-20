@@ -8,11 +8,11 @@ ENVIRONMENT = "development"
 # KV Namespaces for brain configs and execution state
 [[kv_namespaces]]
 binding = "BRAINS_KV"
-id = "YOUR_KV_ID_HERE"
+id = "16fbc9e1df44456190acc9a04ee54741"
 
 [[kv_namespaces]]
 binding = "EXECUTIONS_KV"
-id = "YOUR_KV_ID_HERE"
+id = "16fbc9e1df44456190acc9a04ee54741"
 
 # Durable Objects for execution runtime
 [[durable_objects.bindings]]
