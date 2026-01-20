@@ -1,4 +1,4 @@
-name = "worms-bats-and-flies"
+name = "worms-bats-flies"
 main = "src/index.ts"
 compatibility_date = "2024-05-12"
 
