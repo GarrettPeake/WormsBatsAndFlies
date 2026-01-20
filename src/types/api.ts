@@ -104,6 +104,8 @@ export interface Env {
   JWT_SECRET: string;
   OPENROUTER_API_KEY: string;
   ENVIRONMENT: string;
+  __STATIC_CONTENT: KVNamespace;
+  __STATIC_CONTENT_MANIFEST: string;
 }
 
 // Context variables

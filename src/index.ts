@@ -1,6 +1,7 @@
 // Worker entry point - main router
 
 import { Hono } from 'hono';
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 import { corsMiddleware } from './middleware/cors';
 import { authMiddleware } from './middleware/auth';
 import authHandlers from './handlers/auth';
@@ -41,8 +42,6 @@ app.get('/health', (c) => {
 
 // Catch-all for static files (serve frontend)
 app.get('*', async (c) => {
-  // In production, static files are served from the [site] config in wrangler.toml
-  // This route handles any non-API requests for SPA routing
   const url = new URL(c.req.url);
 
   // If it's an API route that wasn't matched, return 404
@@ -50,8 +49,39 @@ app.get('*', async (c) => {
     return c.json({ error: 'Not Found', message: 'Endpoint not found' }, 404);
   }
 
-  // For SPA routing, return a message (actual static serving is handled by wrangler)
-  return c.text('WormsBatsAndFlies - LLM Orchestration System');
+  // Serve static assets from KV
+  try {
+    return await getAssetFromKV(
+      {
+        request: c.req.raw,
+        waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+      },
+      {
+        ASSET_NAMESPACE: (c.env as any).__STATIC_CONTENT,
+        ASSET_MANIFEST: (c.env as any).__STATIC_CONTENT_MANIFEST,
+      }
+    );
+  } catch (e) {
+    // If asset not found, serve index.html for SPA routing
+    try {
+      const notFoundResponse = await getAssetFromKV(
+        {
+          request: new Request(`${url.origin}/index.html`, c.req.raw),
+          waitUntil: (promise) => c.executionCtx.waitUntil(promise),
+        },
+        {
+          ASSET_NAMESPACE: (c.env as any).__STATIC_CONTENT,
+          ASSET_MANIFEST: (c.env as any).__STATIC_CONTENT_MANIFEST,
+        }
+      );
+      return new Response(notFoundResponse.body, {
+        ...notFoundResponse,
+        status: 200,
+      });
+    } catch (e) {
+      return c.text('Not Found', 404);
+    }
+  }
 });
 
 // Export the fetch handler

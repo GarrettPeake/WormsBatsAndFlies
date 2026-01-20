@@ -25,7 +25,7 @@ new_classes = ["BrainExecution"]
 
 # Static assets for the web frontend
 [site]
-bucket = "./web"
+bucket = "./dist/web"
 
 # Environment secrets (set via wrangler secret put or dashboard)
 # ADMIN_USERNAME
