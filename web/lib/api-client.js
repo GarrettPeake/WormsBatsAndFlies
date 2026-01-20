@@ -142,6 +142,12 @@ class ApiClient {
   }
 
   // Execution endpoints
+  async listExecutions(brainId = null) {
+    const path = brainId ? `/executions?brainId=${brainId}` : '/executions';
+    const result = await this.request('GET', path);
+    return result.executions;
+  }
+
   async startExecution(brainId, options = {}) {
     const result = await this.request('POST', `/brains/${brainId}/execute`, options);
     return result.execution;

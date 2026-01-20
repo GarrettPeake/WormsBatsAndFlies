@@ -70,7 +70,18 @@ class AppShell extends HTMLElement {
         router.navigate('/login');
         return;
       }
-      navigateTo('chat', { currentBrainId: e.detail.id });
+      navigateTo('chat', {
+        currentBrainId: e.detail.id,
+        currentExecId: e.detail.execId || null,
+      });
+    });
+
+    window.addEventListener('route:executions', () => {
+      if (!appState.getState().isAuthenticated) {
+        router.navigate('/login');
+        return;
+      }
+      navigateTo('executions');
     });
 
     window.addEventListener('route:live', (e) => {
@@ -129,10 +140,13 @@ class AppShell extends HTMLElement {
         content.innerHTML = `<brain-editor brain-id="${state.currentBrainId}"></brain-editor>`;
         break;
       case 'chat':
-        content.innerHTML = `<chat-view brain-id="${state.currentBrainId}"></chat-view>`;
+        content.innerHTML = `<chat-view brain-id="${state.currentBrainId}" exec-id="${state.currentExecId || ''}"></chat-view>`;
         break;
       case 'live':
         content.innerHTML = `<live-view brain-id="${state.currentBrainId}" exec-id="${state.currentExecId || ''}"></live-view>`;
+        break;
+      case 'executions':
+        content.innerHTML = this.renderExecutionsView();
         break;
       default:
         content.innerHTML = '<login-form></login-form>';
@@ -152,6 +166,13 @@ class AppShell extends HTMLElement {
             <span>WormsBatsAndFlies</span>
           </div>
           <div class="app-header__actions">
+            <button class="btn btn--secondary" id="executions-btn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Executions
+            </button>
             <button class="btn btn--ghost" id="logout-btn">Logout</button>
           </div>
         </header>
@@ -185,6 +206,30 @@ class AppShell extends HTMLElement {
     `;
   }
 
+  renderExecutionsView() {
+    return `
+      <div class="app-container">
+        <header class="app-header">
+          <div class="app-header__logo">
+            <button class="btn btn--ghost" id="back-btn">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+            </button>
+            <span>Active Executions</span>
+          </div>
+          <div class="app-header__actions">
+            <button class="btn btn--ghost" id="logout-btn">Logout</button>
+          </div>
+        </header>
+        <main class="app-main executions-main">
+          <executions-panel></executions-panel>
+        </main>
+      </div>
+    `;
+  }
+
   render() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -212,6 +257,12 @@ class AppShell extends HTMLElement {
       }
       if (e.target.id === 'new-brain-btn') {
         this.createNewBrain();
+      }
+      if (e.target.id === 'executions-btn' || e.target.closest('#executions-btn')) {
+        router.navigate('/executions');
+      }
+      if (e.target.id === 'back-btn' || e.target.closest('#back-btn')) {
+        router.navigate('/brains');
       }
     });
   }

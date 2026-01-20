@@ -141,6 +141,20 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+/* Executions view layout */
+.executions-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.executions-main executions-panel {
+  width: 100%;
+  max-width: 800px;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

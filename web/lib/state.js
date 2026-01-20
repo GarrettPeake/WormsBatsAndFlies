@@ -71,7 +71,7 @@ export const appState = createStore({
   user: null,
 
   // Navigation
-  currentView: 'login', // login, brains, editor, chat, live
+  currentView: 'login', // login, brains, editor, chat, live, executions
   currentBrainId: null,
   currentExecId: null,
 
@@ -82,11 +82,13 @@ export const appState = createStore({
 
   // Execution
   execution: null,
+  executions: [], // List of all executions
   isExecuting: false,
 
   // UI
   isLoading: false,
   error: null,
+  showExecutionsPanel: false, // Toggle for executions panel visibility
 });
 
 // Convenience methods
@@ -127,4 +129,17 @@ export function setError(error) {
 
 export function clearError() {
   appState.setState({ error: null });
+}
+
+export function setExecutions(executions) {
+  appState.setState({ executions });
+}
+
+export function toggleExecutionsPanel() {
+  const current = appState.getState().showExecutionsPanel;
+  appState.setState({ showExecutionsPanel: !current });
+}
+
+export function setExecutionsPanel(show) {
+  appState.setState({ showExecutionsPanel: show });
 }
