@@ -124,19 +124,4 @@ router
   })
   .register('/brains/:id/exec/:execId', (params) => {
     window.dispatchEvent(new CustomEvent('route:exec', { detail: params }));
-  })
-  .register('/brains/:id/chat', (params) => {
-    window.dispatchEvent(new CustomEvent('route:chat', { detail: params }));
-  })
-  .register('/brains/:id/chat/:execId', (params) => {
-    window.dispatchEvent(new CustomEvent('route:chat', { detail: params }));
-  })
-  .register('/brains/:id/live', (params) => {
-    window.dispatchEvent(new CustomEvent('route:live', { detail: params }));
-  })
-  .register('/brains/:id/live/:execId', (params) => {
-    window.dispatchEvent(new CustomEvent('route:live', { detail: params }));
-  })
-  .register('/executions', () => {
-    window.dispatchEvent(new CustomEvent('route:executions'));
   });

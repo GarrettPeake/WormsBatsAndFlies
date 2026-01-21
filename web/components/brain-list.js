@@ -79,11 +79,6 @@ class BrainList extends HTMLElement {
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
-          <button class="btn btn--ghost btn--icon chat-btn" data-id="${brain.id}" title="Chat">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-          </button>
           <button class="btn btn--ghost btn--icon delete-btn" data-id="${brain.id}" title="Delete">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -152,7 +147,6 @@ class BrainList extends HTMLElement {
     this.shadowRoot.addEventListener('click', (e) => {
       const brainItem = e.target.closest('.brain-item');
       const editBtn = e.target.closest('.edit-btn');
-      const chatBtn = e.target.closest('.chat-btn');
       const deleteBtn = e.target.closest('.delete-btn');
 
       if (deleteBtn) {
@@ -161,9 +155,6 @@ class BrainList extends HTMLElement {
       } else if (editBtn) {
         e.stopPropagation();
         router.navigate(`/brains/${editBtn.dataset.id}/edit`);
-      } else if (chatBtn) {
-        e.stopPropagation();
-        router.navigate(`/brains/${chatBtn.dataset.id}/chat`);
       } else if (brainItem) {
         // Navigate to brain detail view instead of editor
         router.navigate(`/brains/${brainItem.dataset.id}`);
