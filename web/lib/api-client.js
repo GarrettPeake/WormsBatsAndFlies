@@ -173,14 +173,6 @@ class ApiClient {
   async sendInput(execId, content, type = 'text') {
     return this.request('POST', `/executions/${execId}/input`, { content, type });
   }
-
-  /**
-   * Get WebSocket URL for execution streaming
-   */
-  getExecutionStreamUrl(execId) {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/api/executions/${execId}/stream`;
-  }
 }
 
 // Export singleton instance

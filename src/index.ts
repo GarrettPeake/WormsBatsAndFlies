@@ -24,6 +24,7 @@ app.route('/api/auth', authHandlers);
 // Protected routes - require authentication
 app.use('/api/brains', authMiddleware);
 app.use('/api/brains/*', authMiddleware);
+app.use('/api/executions', authMiddleware);
 app.use('/api/executions/*', authMiddleware);
 
 // Brain management

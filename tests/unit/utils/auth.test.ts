@@ -55,7 +55,11 @@ describe('auth utilities', () => {
       expect(extractBearerToken(null)).toBeNull();
       expect(extractBearerToken('')).toBeNull();
       expect(extractBearerToken('Basic abc123')).toBeNull();
-      expect(extractBearerToken('Bearer')).toBe('');
+      expect(extractBearerToken('Bearer')).toBeNull(); // No space after Bearer
+    });
+
+    it('should return empty string for Bearer with space but no token', () => {
+      expect(extractBearerToken('Bearer ')).toBe('');
     });
   });
 

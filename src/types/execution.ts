@@ -1,6 +1,6 @@
 // Execution runtime models
 
-export type ExecutionStatus = 'initializing' | 'running' | 'paused';
+export type ExecutionStatus = 'initializing' | 'running' | 'paused' | 'completed';
 
 export type NeuronStatus = 'idle' | 'queued' | 'processing' | 'fired' | 'error';
 
