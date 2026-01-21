@@ -43,23 +43,3 @@ export async function authMiddleware(
 
   await next();
 }
-
-/**
- * Optional auth middleware - doesn't require token but attaches user if present
- */
-export async function optionalAuthMiddleware(
-  c: Context<{ Bindings: Env; Variables: ContextVariables }>,
-  next: Next
-) {
-  const authHeader = c.req.header('Authorization');
-  const token = extractBearerToken(authHeader ?? null);
-
-  if (token) {
-    const payload = await verifyToken(token, c.env.JWT_SECRET);
-    if (payload) {
-      c.set('user', payload);
-    }
-  }
-
-  await next();
-}

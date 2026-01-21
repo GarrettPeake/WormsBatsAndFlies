@@ -53,11 +53,8 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
   - [x] brain-editor.js - 3D graph editor with autosave, editable name, and transform gizmo
   - [x] neuron-panel.js - Neuron properties editor (resizable)
   - [x] three-canvas.js - Three.js canvas component with gizmo and shift+click connections
-  - [x] chat-view.js - Chat interface (with execution context support)
-  - [x] live-view.js - Live brain visualization (with chat navigation)
-  - [x] neuron-inspector.js - Neuron state inspector
   - [x] executions-panel.js - Active executions list and management (slide-out panel)
-  - [x] execution-view.js - Unified execution view with chat/live toggles
+  - [x] execution-view.js - Unified execution view with integrated chat, live visualization, and neuron inspector
 - [x] HTML entry point (index.html) and main.js
 - [x] Unit tests for utilities and DAOs
 - [x] Execution Management:
@@ -145,23 +142,16 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │   └── components.css
 │   │
 │   ├── /components
-│   │   ├── app-shell.js
-│   │   ├── brain-list.js
-│   │   ├── login-form.js
+│   │   ├── app-shell.js         # Main application container
+│   │   ├── brain-list.js        # Sidebar brain list
+│   │   ├── login-form.js        # Authentication form
 │   │   ├── executions-panel.js  # Active executions management (slide-out)
-│   │   ├── execution-view.js    # Unified execution view with chat/live toggles
+│   │   ├── execution-view.js    # Unified execution view with chat/live/inspector
 │   │   │
-│   │   ├── /editor
-│   │   │   ├── brain-editor.js  # With autosave and editable name
-│   │   │   ├── neuron-panel.js  # Resizable panel
-│   │   │   └── three-canvas.js  # With gizmo and shift+click connections
-│   │   │
-│   │   ├── /chat
-│   │   │   └── chat-view.js
-│   │   │
-│   │   └── /live
-│   │       ├── live-view.js
-│   │       └── neuron-inspector.js
+│   │   └── /editor
+│   │       ├── brain-editor.js  # 3D graph editor with autosave
+│   │       ├── neuron-panel.js  # Resizable neuron properties panel
+│   │       └── three-canvas.js  # Three.js canvas with gizmo
 │   │
 │   ├── /three
 │   │   └── renderer.js          # Three.js renderer
@@ -269,6 +259,70 @@ const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('you
 console.log(Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join(''));
 ```
 
+## System Interactions (Audited 2026-01-21)
+
+This section documents all verified system interactions between frontend, backend, and Durable Objects.
+
+### Frontend → Backend API Calls
+
+All frontend API calls (`web/lib/api-client.js`) map to backend handlers:
+
+| Frontend Method | Backend Route | Handler File |
+|-----------------|---------------|--------------|
+| `login()` | `POST /api/auth/login` | `handlers/auth.ts` |
+| `verifyToken()` | `GET /api/auth/verify` | `handlers/auth.ts` |
+| `listBrains()` | `GET /api/brains` | `handlers/brains.ts` |
+| `getBrain(id)` | `GET /api/brains/:id` | `handlers/brains.ts` |
+| `createBrain(data)` | `POST /api/brains` | `handlers/brains.ts` |
+| `updateBrain(id, data)` | `PUT /api/brains/:id` | `handlers/brains.ts` |
+| `deleteBrain(id)` | `DELETE /api/brains/:id` | `handlers/brains.ts` |
+| `addNeuron()` | `POST /api/brains/:id/neurons` | `handlers/brains.ts` |
+| `updateNeuron()` | `PUT /api/brains/:id/neurons/:nId` | `handlers/brains.ts` |
+| `deleteNeuron()` | `DELETE /api/brains/:id/neurons/:nId` | `handlers/brains.ts` |
+| `addConnection()` | `POST /api/brains/:id/connections` | `handlers/brains.ts` |
+| `deleteConnection()` | `DELETE /api/brains/:id/connections/:cId` | `handlers/brains.ts` |
+| `listExecutions()` | `GET /api/executions` | `handlers/executions.ts` |
+| `startExecution()` | `POST /api/brains/:id/execute` | `handlers/executions.ts` |
+| `getExecution()` | `GET /api/executions/:execId` | `handlers/executions.ts` |
+| `pauseExecution()` | `POST /api/executions/:execId/pause` | `handlers/executions.ts` |
+| `resumeExecution()` | `POST /api/executions/:execId/resume` | `handlers/executions.ts` |
+| `stepExecution()` | `POST /api/executions/:execId/step` | `handlers/executions.ts` |
+| `sendInput()` | `POST /api/executions/:execId/input` | `handlers/executions.ts` |
+
+### WebSocket Interactions
+
+Frontend WebSocket (`web/lib/websocket.js`) ↔ Durable Object (`BrainExecution.ts`):
+
+**Client → Server Messages:**
+- `pause` → `handlePause()`
+- `resume` → `handleResume()`
+- `step` → `handleStep()`
+- `input` → `queueUserInput()`
+
+**Server → Client Broadcasts:**
+- `execution_started` - On WebSocket connect
+- `step_started` - Before each step
+- `neuron_processing` - When neuron begins firing
+- `neuron_output` - When neuron completes
+- `neuron_error` - On neuron error
+- `step_completed` - After step finishes
+- `execution_paused` - On pause
+- `execution_resumed` - On resume
+- `execution_fizzled` - When no neurons have queued inputs
+- `final_output` - When output neuron fires
+
+### Worker → Durable Object Internal Routes
+
+| Worker Handler | DO Path | DO Method |
+|---------------|---------|-----------|
+| `POST /api/brains/:id/execute` | `/init` | `handleInit()` |
+| `POST /api/executions/:execId/pause` | `/pause` | `handlePause()` |
+| `POST /api/executions/:execId/resume` | `/resume` | `handleResume()` |
+| `POST /api/executions/:execId/step` | `/step` | `handleStep()` |
+| `POST /api/executions/:execId/input` | `/input` | `handleInput()` |
+| `GET /api/executions/:execId/stream` | `/stream` | `handleWebSocket()` |
+| `POST /v1/chat/completions` | `/init-sync` | `handleInitSync()` |
+
 ## Architecture Patterns
 
 ### Backend Architecture
@@ -349,4 +403,4 @@ Code is organized into modular, testable components:
 
 ---
 
-*This file was last updated: 2026-01-21*
+*This file was last updated: 2026-01-21 (System interactions audit completed)*

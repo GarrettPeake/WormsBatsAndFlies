@@ -49,21 +49,6 @@ export function createStore(initialState) {
   };
 }
 
-/**
- * Create a computed value that updates when dependencies change
- */
-export function computed(store, selector, callback) {
-  let prevValue = selector(store.getState());
-
-  return store.subscribe((state) => {
-    const newValue = selector(state);
-    if (newValue !== prevValue) {
-      prevValue = newValue;
-      callback(newValue);
-    }
-  });
-}
-
 // Global application state
 export const appState = createStore({
   // Auth
@@ -83,7 +68,6 @@ export const appState = createStore({
   // Execution
   execution: null,
   executions: [], // List of all executions
-  isExecuting: false,
 
   // UI
   isLoading: false,
@@ -119,18 +103,6 @@ export function navigateTo(view, params = {}) {
   });
 }
 
-export function setLoading(isLoading) {
-  appState.setState({ isLoading });
-}
-
-export function setError(error) {
-  appState.setState({ error });
-}
-
-export function clearError() {
-  appState.setState({ error: null });
-}
-
 export function setExecutions(executions) {
   appState.setState({ executions });
 }
@@ -138,8 +110,4 @@ export function setExecutions(executions) {
 export function toggleExecutionsPanel() {
   const current = appState.getState().showExecutionsPanel;
   appState.setState({ showExecutionsPanel: !current });
-}
-
-export function setExecutionsPanel(show) {
-  appState.setState({ showExecutionsPanel: show });
 }
