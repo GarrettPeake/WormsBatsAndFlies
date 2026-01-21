@@ -7,9 +7,6 @@ import './components/login-form.js';
 import './components/editor/brain-editor.js';
 import './components/editor/neuron-panel.js';
 import './components/editor/three-canvas.js';
-import './components/chat/chat-view.js';
-import './components/live/live-view.js';
-import './components/live/neuron-inspector.js';
 import './components/executions-panel.js';
 import './components/execution-view.js';
 

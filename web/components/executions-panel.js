@@ -96,12 +96,8 @@ class ExecutionsPanel extends HTMLElement {
     }
   }
 
-  openInLiveView(brainId, execId) {
-    router.navigate(`/brains/${brainId}/live/${execId}`);
-  }
-
-  openInChatView(brainId, execId) {
-    router.navigate(`/brains/${brainId}/chat/${execId}`);
+  openExecution(brainId, execId) {
+    router.navigate(`/brains/${brainId}/exec/${execId}`);
   }
 
   formatTime(isoString) {
@@ -151,18 +147,13 @@ class ExecutionsPanel extends HTMLElement {
             <span class="execution-item__time">${this.formatTime(exec.startedAt)}</span>
           </div>
           <div class="execution-item__actions">
-            <button class="btn btn--xs btn--secondary open-live-btn" title="Open in Live View">
+            <button class="btn btn--xs btn--secondary open-btn" title="Open Execution">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <circle cx="12" cy="12" r="3"/>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
-              Live
-            </button>
-            <button class="btn btn--xs btn--secondary open-chat-btn" title="Open in Chat View">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              Chat
+              Open
             </button>
             <button class="btn btn--xs ${isPaused ? 'btn--primary' : 'btn--warning'} pause-btn" title="${isPaused ? 'Resume' : 'Pause'}">
               ${isPaused ? `
@@ -186,14 +177,9 @@ class ExecutionsPanel extends HTMLElement {
       const execId = item.dataset.execId;
       const brainId = item.dataset.brainId;
 
-      item.querySelector('.open-live-btn').addEventListener('click', (e) => {
+      item.querySelector('.open-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        this.openInLiveView(brainId, execId);
-      });
-
-      item.querySelector('.open-chat-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.openInChatView(brainId, execId);
+        this.openExecution(brainId, execId);
       });
 
       item.querySelector('.pause-btn').addEventListener('click', (e) => {

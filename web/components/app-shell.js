@@ -94,36 +94,6 @@ class AppShell extends HTMLElement {
       });
     });
 
-    window.addEventListener('route:chat', (e) => {
-      if (!appState.getState().isAuthenticated) {
-        router.navigate('/login');
-        return;
-      }
-      navigateTo('chat', {
-        currentBrainId: e.detail.id,
-        currentExecId: e.detail.execId || null,
-      });
-    });
-
-    window.addEventListener('route:executions', () => {
-      if (!appState.getState().isAuthenticated) {
-        router.navigate('/login');
-        return;
-      }
-      navigateTo('executions');
-    });
-
-    window.addEventListener('route:live', (e) => {
-      if (!appState.getState().isAuthenticated) {
-        router.navigate('/login');
-        return;
-      }
-      navigateTo('live', {
-        currentBrainId: e.detail.id,
-        currentExecId: e.detail.execId || null,
-      });
-    });
-
     // Auth events
     window.addEventListener('auth:logout', () => {
       setAuthenticated(false);
@@ -185,15 +155,6 @@ class AppShell extends HTMLElement {
         break;
       case 'execution':
         content.innerHTML = `<execution-view brain-id="${state.currentBrainId}" exec-id="${state.currentExecId || ''}"></execution-view>`;
-        break;
-      case 'chat':
-        content.innerHTML = `<chat-view brain-id="${state.currentBrainId}" exec-id="${state.currentExecId || ''}"></chat-view>`;
-        break;
-      case 'live':
-        content.innerHTML = `<live-view brain-id="${state.currentBrainId}" exec-id="${state.currentExecId || ''}"></live-view>`;
-        break;
-      case 'executions':
-        content.innerHTML = this.renderExecutionsView();
         break;
       default:
         content.innerHTML = '<login-form></login-form>';
@@ -450,30 +411,6 @@ class AppShell extends HTMLElement {
     return div.innerHTML;
   }
 
-  renderExecutionsView() {
-    return `
-      <div class="app-container">
-        <header class="app-header">
-          <div class="app-header__logo">
-            <button class="btn btn--ghost" id="back-btn">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"/>
-                <polyline points="12 19 5 12 12 5"/>
-              </svg>
-            </button>
-            <span>Active Executions</span>
-          </div>
-          <div class="app-header__actions">
-            <button class="btn btn--ghost" id="logout-btn">Logout</button>
-          </div>
-        </header>
-        <main class="app-main executions-main">
-          <executions-panel></executions-panel>
-        </main>
-      </div>
-    `;
-  }
-
   render() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -504,9 +441,6 @@ class AppShell extends HTMLElement {
       }
       if (e.target.id === 'executions-btn' || e.target.closest('#executions-btn')) {
         toggleExecutionsPanel();
-      }
-      if (e.target.id === 'back-btn' || e.target.closest('#back-btn')) {
-        router.navigate('/brains');
       }
     });
   }
