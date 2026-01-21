@@ -11,6 +11,7 @@ import './components/chat/chat-view.js';
 import './components/live/live-view.js';
 import './components/live/neuron-inspector.js';
 import './components/executions-panel.js';
+import './components/execution-view.js';
 
 // Remove loading state once components are registered
 document.addEventListener('DOMContentLoaded', () => {

@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export class Renderer {
-  constructor(canvas) {
+  constructor(canvas, options = {}) {
     this.canvas = canvas;
+    this.enableEditing = options.enableEditing !== false;
 
     // Three.js core
     this.scene = new THREE.Scene();
@@ -45,8 +46,22 @@ export class Renderer {
     this.labelSprites = new Map(); // neuronId -> sprite
     this.sharedGeometry = null; // Shared sphere geometry for all neurons
 
+    // Transform gizmo
+    this.gizmoGroup = null;
+    this.gizmoArrows = new Map(); // 'x' | 'y' | 'z' -> mesh
+    this.isDraggingGizmo = false;
+    this.activeGizmoAxis = null;
+    this.dragPlane = new THREE.Plane();
+    this.dragStartPoint = new THREE.Vector3();
+    this.dragStartPosition = new THREE.Vector3();
+
+    // Shift+click connection mode
+    this.isShiftDown = false;
+    this.pendingConnectionSource = null;
+
     // Reusable objects to avoid per-frame allocations
     this._tempColor = new THREE.Color();
+    this._tempVec3 = new THREE.Vector3();
 
     // Animation state
     this.animationFrame = null;
@@ -54,10 +69,16 @@ export class Renderer {
     // Callbacks
     this.onNeuronSelect = null;
     this.onNeuronHover = null;
+    this.onNeuronMove = null;
+    this.onConnectionCreate = null;
 
     // Bound event handlers
     this._boundOnClick = this.onClick.bind(this);
     this._boundOnMouseMove = this.onMouseMove.bind(this);
+    this._boundOnMouseDown = this.onMouseDown.bind(this);
+    this._boundOnMouseUp = this.onMouseUp.bind(this);
+    this._boundOnKeyDown = this.onKeyDown.bind(this);
+    this._boundOnKeyUp = this.onKeyUp.bind(this);
     this._boundOnResize = this.resize.bind(this);
 
     // Throttle state for mousemove
@@ -79,9 +100,149 @@ export class Renderer {
     // Event listeners
     this.canvas.addEventListener('click', this._boundOnClick);
     this.canvas.addEventListener('mousemove', this._boundOnMouseMove);
+    this.canvas.addEventListener('mousedown', this._boundOnMouseDown);
+    this.canvas.addEventListener('mouseup', this._boundOnMouseUp);
+    window.addEventListener('keydown', this._boundOnKeyDown);
+    window.addEventListener('keyup', this._boundOnKeyUp);
     window.addEventListener('resize', this._boundOnResize);
 
+    // Create transform gizmo
+    if (this.enableEditing) {
+      this.createGizmo();
+    }
+
     this.resize();
+  }
+
+  /**
+   * Create the transform gizmo (axis arrows)
+   */
+  createGizmo() {
+    this.gizmoGroup = new THREE.Group();
+    this.gizmoGroup.visible = false;
+
+    const arrowLength = 1.2;
+    const arrowHeadLength = 0.2;
+    const arrowHeadWidth = 0.1;
+
+    // X axis (red)
+    const xArrow = this.createArrowHelper(
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(0, 0, 0),
+      arrowLength,
+      0xff4444,
+      arrowHeadLength,
+      arrowHeadWidth
+    );
+    xArrow.userData.axis = 'x';
+    this.gizmoGroup.add(xArrow);
+    this.gizmoArrows.set('x', xArrow);
+
+    // Y axis (green)
+    const yArrow = this.createArrowHelper(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, 0, 0),
+      arrowLength,
+      0x44ff44,
+      arrowHeadLength,
+      arrowHeadWidth
+    );
+    yArrow.userData.axis = 'y';
+    this.gizmoGroup.add(yArrow);
+    this.gizmoArrows.set('y', yArrow);
+
+    // Z axis (blue)
+    const zArrow = this.createArrowHelper(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, 0),
+      arrowLength,
+      0x4444ff,
+      arrowHeadLength,
+      arrowHeadWidth
+    );
+    zArrow.userData.axis = 'z';
+    this.gizmoGroup.add(zArrow);
+    this.gizmoArrows.set('z', zArrow);
+
+    this.scene.add(this.gizmoGroup);
+  }
+
+  createArrowHelper(direction, origin, length, color, headLength, headWidth) {
+    // Create a custom arrow using cylinder and cone for better picking
+    const group = new THREE.Group();
+
+    // Shaft
+    const shaftGeometry = new THREE.CylinderGeometry(0.04, 0.04, length - headLength, 8);
+    const shaftMaterial = new THREE.MeshBasicMaterial({ color });
+    const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+    shaft.position.copy(direction.clone().multiplyScalar((length - headLength) / 2));
+    shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    group.add(shaft);
+
+    // Head (cone)
+    const headGeometry = new THREE.ConeGeometry(headWidth, headLength, 8);
+    const headMaterial = new THREE.MeshBasicMaterial({ color });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.copy(direction.clone().multiplyScalar(length - headLength / 2));
+    head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    group.add(head);
+
+    return group;
+  }
+
+  /**
+   * Update gizmo position to selected neuron
+   */
+  updateGizmoPosition() {
+    if (!this.gizmoGroup || !this.enableEditing) return;
+
+    if (this.selectedNeuronId) {
+      const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+      if (neuron) {
+        this.gizmoGroup.position.set(
+          neuron.position.x,
+          neuron.position.y,
+          neuron.position.z
+        );
+        this.gizmoGroup.visible = true;
+        return;
+      }
+    }
+    this.gizmoGroup.visible = false;
+  }
+
+  /**
+   * Pick gizmo arrow at mouse position
+   */
+  pickGizmoAxis(event) {
+    if (!this.gizmoGroup || !this.gizmoGroup.visible) return null;
+
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Collect all gizmo meshes
+    const gizmoMeshes = [];
+    this.gizmoGroup.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        gizmoMeshes.push(child);
+      }
+    });
+
+    const intersects = this.raycaster.intersectObjects(gizmoMeshes, false);
+
+    if (intersects.length > 0) {
+      // Find the parent group with the axis userData
+      let obj = intersects[0].object;
+      while (obj && !obj.userData.axis) {
+        obj = obj.parent;
+      }
+      return obj?.userData.axis || null;
+    }
+
+    return null;
   }
 
   resize() {
@@ -114,6 +275,7 @@ export class Renderer {
   setSelectedNeuron(neuronId) {
     this.selectedNeuronId = neuronId;
     this.updateNeuronAppearance();
+    this.updateGizmoPosition();
   }
 
   /**
@@ -240,14 +402,20 @@ export class Renderer {
    */
   rebuildConnections() {
     // Clear existing connections
-    for (const line of this.connectionLines) {
-      this.scene.remove(line);
-      if (line.geometry) line.geometry.dispose();
-      if (line.material) line.material.dispose();
+    for (const obj of this.connectionLines) {
+      this.scene.remove(obj);
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(m => m.dispose());
+        } else {
+          obj.material.dispose();
+        }
+      }
     }
     this.connectionLines = [];
 
-    const connectionColor = new THREE.Color('#4b5563');
+    const connectionColor = 0x6b7280; // Gray color
 
     for (const conn of this.connections) {
       const sourceNeuron = this.neurons.find(n => n.id === conn.sourceNeuronId);
@@ -271,40 +439,38 @@ export class Renderer {
       const start = sourcePos.clone().add(direction.clone().multiplyScalar(0.55));
       const end = targetPos.clone().sub(direction.clone().multiplyScalar(0.55));
 
-      // Create main line
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-      const lineMaterial = new THREE.LineBasicMaterial({
+      // Create thick tube for the main line
+      const path = new THREE.LineCurve3(start, end);
+      const tubeGeometry = new THREE.TubeGeometry(path, 1, 0.04, 8, false);
+      const tubeMaterial = new THREE.MeshBasicMaterial({
         color: connectionColor,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.8,
       });
-      const line = new THREE.Line(lineGeometry, lineMaterial);
-      this.scene.add(line);
-      this.connectionLines.push(line);
+      const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+      this.scene.add(tube);
+      this.connectionLines.push(tube);
 
-      // Create arrowhead
-      const arrowLength = 0.2;
-      const arrowWidth = 0.1;
+      // Create arrowhead (cone)
+      const arrowLength = 0.25;
+      const arrowWidth = 0.12;
 
-      // Get perpendicular vector
-      const up = Math.abs(direction.y) < 0.9
-        ? new THREE.Vector3(0, 1, 0)
-        : new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3().crossVectors(direction, up).normalize();
+      const coneGeometry = new THREE.ConeGeometry(arrowWidth, arrowLength, 8);
+      const coneMaterial = new THREE.MeshBasicMaterial({
+        color: connectionColor,
+        transparent: true,
+        opacity: 0.8,
+      });
+      const cone = new THREE.Mesh(coneGeometry, coneMaterial);
 
-      const arrowBase = end.clone().sub(direction.clone().multiplyScalar(arrowLength));
-      const arrowTip1 = arrowBase.clone().add(perp.clone().multiplyScalar(arrowWidth));
-      const arrowTip2 = arrowBase.clone().sub(perp.clone().multiplyScalar(arrowWidth));
+      // Position and rotate cone to point in direction
+      cone.position.copy(end);
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      // Move cone back slightly so it points at target
+      cone.position.sub(direction.clone().multiplyScalar(arrowLength / 2));
 
-      const arrow1Geometry = new THREE.BufferGeometry().setFromPoints([end, arrowTip1]);
-      const arrow2Geometry = new THREE.BufferGeometry().setFromPoints([end, arrowTip2]);
-
-      const arrow1 = new THREE.Line(arrow1Geometry, lineMaterial.clone());
-      const arrow2 = new THREE.Line(arrow2Geometry, lineMaterial.clone());
-
-      this.scene.add(arrow1);
-      this.scene.add(arrow2);
-      this.connectionLines.push(arrow1, arrow2);
+      this.scene.add(cone);
+      this.connectionLines.push(cone);
     }
   }
 
@@ -382,10 +548,112 @@ export class Renderer {
   }
 
   /**
+   * Handle keyboard down
+   */
+  onKeyDown(event) {
+    if (event.key === 'Shift') {
+      this.isShiftDown = true;
+    }
+  }
+
+  /**
+   * Handle keyboard up
+   */
+  onKeyUp(event) {
+    if (event.key === 'Shift') {
+      this.isShiftDown = false;
+      this.pendingConnectionSource = null;
+    }
+  }
+
+  /**
+   * Handle mouse down for gizmo dragging
+   */
+  onMouseDown(event) {
+    if (!this.enableEditing) return;
+
+    // Check if clicking on gizmo
+    const axis = this.pickGizmoAxis(event);
+    if (axis && this.selectedNeuronId) {
+      this.isDraggingGizmo = true;
+      this.activeGizmoAxis = axis;
+      this.controls.enabled = false; // Disable orbit controls while dragging
+
+      // Get the neuron's current position
+      const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+      if (neuron) {
+        this.dragStartPosition.set(neuron.position.x, neuron.position.y, neuron.position.z);
+
+        // Set up drag plane perpendicular to camera but containing the axis
+        const axisVector = new THREE.Vector3(
+          axis === 'x' ? 1 : 0,
+          axis === 'y' ? 1 : 0,
+          axis === 'z' ? 1 : 0
+        );
+
+        // Get camera direction
+        const camDir = new THREE.Vector3();
+        this.camera.getWorldDirection(camDir);
+
+        // Create plane normal that is perpendicular to the axis and aligned with camera view
+        const planeNormal = new THREE.Vector3().crossVectors(axisVector, camDir).cross(axisVector).normalize();
+        if (planeNormal.length() < 0.1) {
+          // If axis is parallel to camera direction, use a default perpendicular
+          planeNormal.set(axis === 'x' ? 0 : 1, axis === 'y' ? 0 : 1, axis === 'z' ? 1 : 0);
+        }
+
+        this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.dragStartPosition);
+
+        // Get initial intersection point
+        const rect = this.canvas.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.raycaster.ray.intersectPlane(this.dragPlane, this.dragStartPoint);
+      }
+
+      event.preventDefault();
+      return;
+    }
+  }
+
+  /**
+   * Handle mouse up
+   */
+  onMouseUp(event) {
+    if (this.isDraggingGizmo) {
+      this.isDraggingGizmo = false;
+      this.activeGizmoAxis = null;
+      this.controls.enabled = true;
+    }
+  }
+
+  /**
    * Handle click for selection
    */
   onClick(event) {
+    // Don't process click if we were dragging
+    if (this.isDraggingGizmo) return;
+
     const neuronId = this.pickNeuron(event);
+
+    // Shift+click to create connection
+    if (this.isShiftDown && this.enableEditing && neuronId) {
+      if (this.pendingConnectionSource && this.pendingConnectionSource !== neuronId) {
+        // Create connection from pending source to clicked neuron
+        if (this.onConnectionCreate) {
+          this.onConnectionCreate(this.pendingConnectionSource, neuronId);
+        }
+        this.pendingConnectionSource = null;
+      } else {
+        // Set this neuron as the connection source
+        this.pendingConnectionSource = neuronId;
+      }
+      return;
+    }
+
+    // Clear pending connection on regular click
+    this.pendingConnectionSource = null;
 
     if (this.onNeuronSelect) {
       this.onNeuronSelect(neuronId);
@@ -393,15 +661,90 @@ export class Renderer {
   }
 
   /**
-   * Handle mouse move for hover
+   * Handle mouse move for hover and gizmo dragging
    */
   onMouseMove(event) {
-    // Throttle picking
+    // Handle gizmo dragging
+    if (this.isDraggingGizmo && this.activeGizmoAxis && this.selectedNeuronId) {
+      const rect = this.canvas.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+
+      const intersectPoint = new THREE.Vector3();
+      if (this.raycaster.ray.intersectPlane(this.dragPlane, intersectPoint)) {
+        // Calculate movement along the axis
+        const delta = intersectPoint.sub(this.dragStartPoint);
+
+        // Project delta onto the active axis
+        let newPosition;
+        switch (this.activeGizmoAxis) {
+          case 'x':
+            newPosition = this.dragStartPosition.clone();
+            newPosition.x += delta.x;
+            break;
+          case 'y':
+            newPosition = this.dragStartPosition.clone();
+            newPosition.y += delta.y;
+            break;
+          case 'z':
+            newPosition = this.dragStartPosition.clone();
+            newPosition.z += delta.z;
+            break;
+        }
+
+        // Update neuron position
+        const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+        if (neuron && newPosition) {
+          neuron.position.x = newPosition.x;
+          neuron.position.y = newPosition.y;
+          neuron.position.z = newPosition.z;
+
+          // Update mesh position
+          const mesh = this.neuronMeshes.get(this.selectedNeuronId);
+          if (mesh) {
+            mesh.position.copy(newPosition);
+          }
+
+          // Update label position
+          const sprite = this.labelSprites.get(this.selectedNeuronId);
+          if (sprite) {
+            sprite.position.set(newPosition.x, newPosition.y + 0.9, newPosition.z);
+          }
+
+          // Update gizmo position
+          if (this.gizmoGroup) {
+            this.gizmoGroup.position.copy(newPosition);
+          }
+
+          // Notify about position change
+          if (this.onNeuronMove) {
+            this.onNeuronMove(this.selectedNeuronId, neuron.position);
+          }
+
+          // Rebuild connections to update their positions
+          this.rebuildConnections();
+        }
+      }
+      return;
+    }
+
+    // Throttle picking for hover
     const now = performance.now();
     if (now - this._lastPickTime < this._pickThrottleMs) {
       return;
     }
     this._lastPickTime = now;
+
+    // Check gizmo hover
+    if (this.enableEditing && this.gizmoGroup?.visible) {
+      const gizmoAxis = this.pickGizmoAxis(event);
+      if (gizmoAxis) {
+        this.canvas.style.cursor = 'grab';
+        return;
+      }
+    }
 
     const neuronId = this.pickNeuron(event);
 
@@ -518,6 +861,10 @@ export class Renderer {
     // Remove event listeners
     this.canvas.removeEventListener('click', this._boundOnClick);
     this.canvas.removeEventListener('mousemove', this._boundOnMouseMove);
+    this.canvas.removeEventListener('mousedown', this._boundOnMouseDown);
+    this.canvas.removeEventListener('mouseup', this._boundOnMouseUp);
+    window.removeEventListener('keydown', this._boundOnKeyDown);
+    window.removeEventListener('keyup', this._boundOnKeyUp);
     window.removeEventListener('resize', this._boundOnResize);
 
     // Dispose controls
@@ -527,6 +874,18 @@ export class Renderer {
     if (this.sharedGeometry) {
       this.sharedGeometry.dispose();
       this.sharedGeometry = null;
+    }
+
+    // Dispose gizmo
+    if (this.gizmoGroup) {
+      this.gizmoGroup.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry?.dispose();
+          child.material?.dispose();
+        }
+      });
+      this.scene.remove(this.gizmoGroup);
+      this.gizmoGroup = null;
     }
 
     // Dispose all mesh materials (geometry already disposed above)
@@ -539,9 +898,15 @@ export class Renderer {
       sprite.material.dispose();
     }
 
-    for (const line of this.connectionLines) {
-      if (line.geometry) line.geometry.dispose();
-      if (line.material) line.material.dispose();
+    for (const obj of this.connectionLines) {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach(m => m.dispose());
+        } else {
+          obj.material.dispose();
+        }
+      }
     }
 
     // Dispose renderer
