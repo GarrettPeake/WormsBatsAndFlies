@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { OpenRouterDAO } from '../dao/openrouter.dao';
 import { ExecutionDAO } from '../dao/execution.dao';
+import { BrainDAO } from '../dao/brain.dao';
 
 interface InitPayload {
   execution: BrainExecutionState;
@@ -43,13 +44,54 @@ export class BrainExecution implements DurableObject {
     this.openRouterDAO = new OpenRouterDAO(env.OPENROUTER_API_KEY);
   }
 
+  /**
+   * Load execution state and brain config from KV if not already loaded
+   * This is needed when the DO is freshly instantiated or has been hibernated
+   */
+  private async loadStateIfNeeded(execId: string): Promise<boolean> {
+    // If already loaded, no need to reload
+    if (this.execution && this.brain) {
+      return true;
+    }
+
+    try {
+      // Load execution from KV
+      const executionDAO = new ExecutionDAO(this.env.EXECUTIONS_KV);
+      this.execution = await executionDAO.getById(execId);
+
+      if (!this.execution) {
+        return false;
+      }
+
+      // Load brain config
+      const brainDAO = new BrainDAO(this.env.BRAINS_KV);
+      this.brain = await brainDAO.getById(this.execution.brainId);
+
+      return this.brain !== null;
+    } catch (error) {
+      console.error('Failed to load state:', error);
+      return false;
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // Extract execution ID from the DO's name (passed when creating the stub)
+    // The DO is created with idFromName(execId), so we can get it from state.id.name
+    const execId = this.state.id.name ?? '';
+
+    if (!execId) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid Durable Object ID' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // WebSocket upgrade
     if (request.headers.get('Upgrade') === 'websocket') {
-      return this.handleWebSocket(request);
+      return this.handleWebSocket(request, execId);
     }
 
     switch (path) {
@@ -58,13 +100,13 @@ export class BrainExecution implements DurableObject {
       case '/init-sync':
         return this.handleInitSync(request);
       case '/pause':
-        return this.handlePause();
+        return this.handlePause(execId);
       case '/resume':
-        return this.handleResume();
+        return this.handleResume(execId);
       case '/step':
-        return this.handleStep();
+        return this.handleStep(execId);
       case '/input':
-        return this.handleInput(request);
+        return this.handleInput(request, execId);
       default:
         return new Response('Not found', { status: 404 });
     }
@@ -236,7 +278,16 @@ export class BrainExecution implements DurableObject {
   /**
    * Handle WebSocket connection
    */
-  private handleWebSocket(request: Request): Response {
+  private async handleWebSocket(request: Request, execId: string): Promise<Response> {
+    // Load state if needed (DO may have been hibernated)
+    const loaded = await this.loadStateIfNeeded(execId);
+    if (!loaded) {
+      return new Response(
+        JSON.stringify({ error: 'Execution not found or failed to load' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
@@ -304,8 +355,19 @@ export class BrainExecution implements DurableObject {
   /**
    * Pause execution
    */
-  private async handlePause(): Promise<Response> {
-    if (!this.execution) {
+  private async handlePause(execId?: string): Promise<Response> {
+    // Get execId from parameter or current execution
+    const id = execId ?? this.execution?.id;
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'No active execution' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Load state if needed (DO may have been hibernated)
+    const loaded = await this.loadStateIfNeeded(id);
+    if (!loaded || !this.execution) {
       return new Response(JSON.stringify({ error: 'No active execution' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -326,8 +388,19 @@ export class BrainExecution implements DurableObject {
   /**
    * Resume execution
    */
-  private async handleResume(): Promise<Response> {
-    if (!this.execution) {
+  private async handleResume(execId?: string): Promise<Response> {
+    // Get execId from parameter or current execution
+    const id = execId ?? this.execution?.id;
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'No active execution' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Load state if needed (DO may have been hibernated)
+    const loaded = await this.loadStateIfNeeded(id);
+    if (!loaded || !this.execution) {
       return new Response(JSON.stringify({ error: 'No active execution' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -351,8 +424,19 @@ export class BrainExecution implements DurableObject {
   /**
    * Execute a single step (manual mode)
    */
-  private async handleStep(): Promise<Response> {
-    if (!this.execution) {
+  private async handleStep(execId?: string): Promise<Response> {
+    // Get execId from parameter or current execution
+    const id = execId ?? this.execution?.id;
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'No active execution' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Load state if needed (DO may have been hibernated)
+    const loaded = await this.loadStateIfNeeded(id);
+    if (!loaded || !this.execution) {
       return new Response(JSON.stringify({ error: 'No active execution' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -376,8 +460,10 @@ export class BrainExecution implements DurableObject {
   /**
    * Handle new input to the brain
    */
-  private async handleInput(request: Request): Promise<Response> {
-    if (!this.execution || !this.brain) {
+  private async handleInput(request: Request, execId: string): Promise<Response> {
+    // Load state if needed (DO may have been hibernated)
+    const loaded = await this.loadStateIfNeeded(execId);
+    if (!loaded || !this.execution || !this.brain) {
       return new Response(JSON.stringify({ error: 'No active execution' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
