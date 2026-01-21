@@ -40,23 +40,24 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 - [x] Worker entry point and router (index.ts)
 - [x] CSS files (reset.css, variables.css, layout.css, components.css)
 - [x] Three.js rendering engine:
-  - [x] renderer.js - Three.js renderer with OrbitControls, raycaster picking, and sprite labels
+  - [x] renderer.js - Three.js renderer with OrbitControls, raycaster picking, sprite labels, transform gizmo for neuron positioning, thicker connection arrows, and shift+click connection creation
 - [x] Frontend library utilities:
   - [x] api-client.js - API client for backend communication
   - [x] websocket.js - WebSocket manager for live streaming
   - [x] state.js - Simple reactive state management
   - [x] router.js - Hash-based client-side router
 - [x] Web Components:
-  - [x] app-shell.js - Main application container
+  - [x] app-shell.js - Main application container with toggle-able executions panel
   - [x] brain-list.js - Sidebar brain list
   - [x] login-form.js - Authentication form
-  - [x] brain-editor.js - 3D graph editor container
-  - [x] neuron-panel.js - Neuron properties editor
-  - [x] three-canvas.js - Three.js canvas component
+  - [x] brain-editor.js - 3D graph editor with autosave, editable name, and transform gizmo
+  - [x] neuron-panel.js - Neuron properties editor (resizable)
+  - [x] three-canvas.js - Three.js canvas component with gizmo and shift+click connections
   - [x] chat-view.js - Chat interface (with execution context support)
   - [x] live-view.js - Live brain visualization (with chat navigation)
   - [x] neuron-inspector.js - Neuron state inspector
-  - [x] executions-panel.js - Active executions list and management
+  - [x] executions-panel.js - Active executions list and management (slide-out panel)
+  - [x] execution-view.js - Unified execution view with chat/live toggles
 - [x] HTML entry point (index.html) and main.js
 - [x] Unit tests for utilities and DAOs
 - [x] Execution Management:
@@ -147,12 +148,13 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
 │   │   ├── app-shell.js
 │   │   ├── brain-list.js
 │   │   ├── login-form.js
-│   │   ├── executions-panel.js  # Active executions management
+│   │   ├── executions-panel.js  # Active executions management (slide-out)
+│   │   ├── execution-view.js    # Unified execution view with chat/live toggles
 │   │   │
 │   │   ├── /editor
-│   │   │   ├── brain-editor.js
-│   │   │   ├── neuron-panel.js
-│   │   │   └── three-canvas.js
+│   │   │   ├── brain-editor.js  # With autosave and editable name
+│   │   │   ├── neuron-panel.js  # Resizable panel
+│   │   │   └── three-canvas.js  # With gizmo and shift+click connections
 │   │   │
 │   │   ├── /chat
 │   │   │   └── chat-view.js
@@ -347,4 +349,4 @@ Code is organized into modular, testable components:
 
 ---
 
-*This file was last updated: 2026-01-20*
+*This file was last updated: 2026-01-21*

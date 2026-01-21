@@ -165,7 +165,8 @@ class BrainList extends HTMLElement {
         e.stopPropagation();
         router.navigate(`/brains/${chatBtn.dataset.id}/chat`);
       } else if (brainItem) {
-        router.navigate(`/brains/${brainItem.dataset.id}/edit`);
+        // Navigate to brain detail view instead of editor
+        router.navigate(`/brains/${brainItem.dataset.id}`);
       }
     });
   }

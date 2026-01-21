@@ -1,6 +1,7 @@
 // Three.js canvas component for 3D brain visualization
 
 import { Renderer } from '../../three/renderer.js';
+import { api } from '../../lib/api-client.js';
 import { appState, setSelectedNeuron } from '../../lib/state.js';
 
 class ThreeCanvas extends HTMLElement {
@@ -77,7 +78,7 @@ class ThreeCanvas extends HTMLElement {
       this.renderer = null;
     }
 
-    this.renderer = new Renderer(canvas);
+    this.renderer = new Renderer(canvas, { enableEditing: true });
 
     // Handle neuron selection
     this.renderer.onNeuronSelect = (neuronId) => {
@@ -87,6 +88,44 @@ class ThreeCanvas extends HTMLElement {
     // Handle neuron hover
     this.renderer.onNeuronHover = (neuronId) => {
       // Could show tooltip or highlight
+    };
+
+    // Handle neuron position change (from gizmo drag)
+    this.renderer.onNeuronMove = (neuronId, position) => {
+      if (!this.brain) return;
+
+      const neuron = this.brain.neurons.find(n => n.id === neuronId);
+      if (neuron) {
+        neuron.position = { ...position };
+        // Dispatch event for autosave
+        window.dispatchEvent(new CustomEvent('neuron:updated', { detail: neuron }));
+      }
+    };
+
+    // Handle connection creation (shift+click)
+    this.renderer.onConnectionCreate = async (sourceNeuronId, targetNeuronId) => {
+      if (!this.brain) return;
+
+      // Check if connection already exists
+      const exists = this.brain.connections.some(
+        c => c.sourceNeuronId === sourceNeuronId && c.targetNeuronId === targetNeuronId
+      );
+      if (exists) return;
+
+      try {
+        const connection = await api.addConnection(this.brain.id, {
+          sourceNeuronId,
+          targetNeuronId,
+        });
+
+        this.brain.connections.push(connection);
+        this.updateRenderer();
+
+        // Dispatch event for autosave and UI update
+        window.dispatchEvent(new CustomEvent('brain:updated', { detail: this.brain }));
+      } catch (error) {
+        console.error('Failed to add connection:', error);
+      }
     };
 
     this.renderer.start();

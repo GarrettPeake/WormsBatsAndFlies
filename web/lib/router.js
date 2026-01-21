@@ -117,10 +117,13 @@ router
     window.dispatchEvent(new CustomEvent('route:brains'));
   })
   .register('/brains/:id', (params) => {
-    window.dispatchEvent(new CustomEvent('route:brain', { detail: params }));
+    window.dispatchEvent(new CustomEvent('route:brains-detail', { detail: params }));
   })
   .register('/brains/:id/edit', (params) => {
     window.dispatchEvent(new CustomEvent('route:editor', { detail: params }));
+  })
+  .register('/brains/:id/exec/:execId', (params) => {
+    window.dispatchEvent(new CustomEvent('route:exec', { detail: params }));
   })
   .register('/brains/:id/chat', (params) => {
     window.dispatchEvent(new CustomEvent('route:chat', { detail: params }));
