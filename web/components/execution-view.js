@@ -303,10 +303,10 @@ class ExecutionView extends HTMLElement {
     const liveToggle = this.shadowRoot.querySelector('#live-toggle');
 
     if (chatPanel) {
-      chatPanel.classList.toggle('execution-layout__panel--hidden', !this.showChat);
+      chatPanel.classList.toggle('panel--hidden', !this.showChat);
     }
     if (livePanel) {
-      livePanel.classList.toggle('execution-layout__panel--hidden', !this.showLive);
+      livePanel.classList.toggle('panel--hidden', !this.showLive);
     }
     if (divider) {
       divider.style.display = (this.showChat && this.showLive) ? 'block' : 'none';
