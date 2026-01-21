@@ -78,7 +78,12 @@ export class BrainExecution implements DurableObject {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Extract execution ID from the DO's name (passed when creating the stub)
+    // For init endpoints, the execution state comes from the request body
+    if (path === '/init' || path === '/init-sync') {
+      return path === '/init' ? this.handleInit(request) : this.handleInitSync(request);
+    }
+
+    // For all other endpoints, extract execution ID from the DO's name
     // The DO is created with idFromName(execId), so we can get it from state.id.name
     const execId = this.state.id.name ?? '';
 
@@ -95,10 +100,6 @@ export class BrainExecution implements DurableObject {
     }
 
     switch (path) {
-      case '/init':
-        return this.handleInit(request);
-      case '/init-sync':
-        return this.handleInitSync(request);
       case '/pause':
         return this.handlePause(execId);
       case '/resume':
