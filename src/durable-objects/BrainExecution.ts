@@ -94,12 +94,13 @@ export class BrainExecution implements DurableObject {
       );
     }
 
-    // WebSocket upgrade
-    if (request.headers.get('Upgrade') === 'websocket') {
-      return this.handleWebSocket(request, execId);
-    }
-
     switch (path) {
+      case '/stream':
+        // WebSocket upgrade
+        if (request.headers.get('Upgrade') === 'websocket') {
+          return this.handleWebSocket(request, execId);
+        }
+        return new Response('WebSocket upgrade required', { status: 400 });
       case '/pause':
         return this.handlePause(execId);
       case '/resume':
