@@ -14,11 +14,13 @@ import type {
 } from '../types';
 import { OpenRouterDAO } from '../dao/openrouter.dao';
 import { ExecutionDAO } from '../dao/execution.dao';
-import { BrainDAO } from '../dao/brain.dao';
 
+/**
+ * Payload for initializing an execution.
+ * Note: The brain configuration is embedded in execution.brainSnapshot
+ */
 interface InitPayload {
   execution: BrainExecutionState;
-  brain: Brain;
   initialInput?: string;
   stepDelayMs?: number;
 }
@@ -45,8 +47,10 @@ export class BrainExecution implements DurableObject {
   }
 
   /**
-   * Load execution state and brain config from KV if not already loaded
-   * This is needed when the DO is freshly instantiated or has been hibernated
+   * Load execution state from KV if not already loaded.
+   * The brain configuration is loaded from the execution's immutable snapshot,
+   * NOT from the live brain configuration. This ensures that executions remain
+   * consistent even if the original brain is modified during execution.
    */
   private async loadStateIfNeeded(execId: string): Promise<boolean> {
     // If already loaded, no need to reload
@@ -63,9 +67,10 @@ export class BrainExecution implements DurableObject {
         return false;
       }
 
-      // Load brain config
-      const brainDAO = new BrainDAO(this.env.BRAINS_KV);
-      this.brain = await brainDAO.getById(this.execution.brainId);
+      // Use the brain snapshot from the execution state - this ensures immutability
+      // The snapshot was captured when the execution started and is stored with
+      // the execution, so changes to the original brain won't affect this execution
+      this.brain = this.execution.brainSnapshot;
 
       return this.brain !== null;
     } catch (error) {
@@ -136,13 +141,15 @@ export class BrainExecution implements DurableObject {
 
   /**
    * Initialize execution and start running (async mode)
+   * The brain configuration is embedded in execution.brainSnapshot for immutability
    */
   private async handleInit(request: Request): Promise<Response> {
     try {
       const payload = await request.json() as InitPayload;
 
       this.execution = payload.execution;
-      this.brain = payload.brain;
+      // Use the brain snapshot from the execution state - this ensures immutability
+      this.brain = payload.execution.brainSnapshot;
       this.stepDelayMs = payload.stepDelayMs ?? 1000;
 
       // Queue initial input if provided
@@ -171,13 +178,15 @@ export class BrainExecution implements DurableObject {
 
   /**
    * Initialize and run execution synchronously until completion (for OpenAI endpoint)
+   * The brain configuration is embedded in execution.brainSnapshot for immutability
    */
   private async handleInitSync(request: Request): Promise<Response> {
     try {
       const payload = await request.json() as InitSyncPayload;
 
       this.execution = payload.execution;
-      this.brain = payload.brain;
+      // Use the brain snapshot from the execution state - this ensures immutability
+      this.brain = payload.execution.brainSnapshot;
 
       // Queue initial input if provided
       if (payload.initialInput && this.brain.textInputNeuronId) {

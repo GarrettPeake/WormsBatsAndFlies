@@ -62,6 +62,7 @@ This file documents the current state of the WormsBatsAndFlies project. This is 
   - [x] Open executions in live view or chat view
   - [x] Pause/resume executions from any view
   - [x] Maintain execution context when switching between chat and live views
+  - [x] Brain snapshot system - immutable copy of brain config stored with each execution
 
 ### Not Yet Implemented
 
@@ -376,6 +377,12 @@ Code is organized into modular, testable components:
 
 7. **Dumb Connections**: Connections are simple directed edges with no weights or labels.
 
+8. **Brain Snapshot Pattern**: Each execution stores an immutable snapshot of the brain configuration at start time. This ensures:
+   - Executions remain consistent even if the original brain is edited during execution
+   - Durable Objects can be hibernated and resumed without configuration drift
+   - Live visualization accurately reflects the execution's brain topology
+   - Reproducibility of execution behavior
+
 ### Coding Standards
 
 - Use clear, descriptive variable and function names
@@ -403,4 +410,4 @@ Code is organized into modular, testable components:
 
 ---
 
-*This file was last updated: 2026-01-21 (System interactions audit completed)*
+*This file was last updated: 2026-01-22 (Brain snapshot pattern implemented)*
