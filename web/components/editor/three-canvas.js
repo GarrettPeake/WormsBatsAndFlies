@@ -155,6 +155,12 @@ class ThreeCanvas extends HTMLElement {
     }
   }
 
+  handleResize() {
+    if (this.renderer) {
+      this.renderer.resize();
+    }
+  }
+
   render() {
     this.shadowRoot.innerHTML = `
       <style>

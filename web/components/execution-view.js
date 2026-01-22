@@ -617,9 +617,17 @@ class ExecutionView extends HTMLElement {
         }
 
         .panel-divider {
-          width: 1px;
+          width: 6px;
           background-color: var(--color-border);
           display: none;
+          cursor: ew-resize;
+          transition: background-color var(--transition-fast);
+          flex-shrink: 0;
+        }
+
+        .panel-divider:hover,
+        .panel-divider.dragging {
+          background-color: var(--color-primary);
         }
 
         /* Chat styles */
@@ -750,6 +758,25 @@ class ExecutionView extends HTMLElement {
           background-color: var(--color-bg-secondary);
           border-left: 1px solid var(--color-border);
           overflow-y: auto;
+          position: relative;
+          flex-shrink: 0;
+        }
+
+        .inspector-resize-handle {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          cursor: ew-resize;
+          background-color: transparent;
+          transition: background-color var(--transition-fast);
+          z-index: 10;
+        }
+
+        .inspector-resize-handle:hover,
+        .inspector-resize-handle.dragging {
+          background-color: var(--color-primary);
         }
 
         .inspector-empty {
@@ -983,6 +1010,7 @@ class ExecutionView extends HTMLElement {
                   <canvas class="live-canvas" id="live-canvas"></canvas>
                 </div>
                 <div class="live-inspector" id="neuron-inspector">
+                  <div class="inspector-resize-handle" id="inspector-resize-handle"></div>
                   ${this.renderEmptyInspector()}
                 </div>
               </div>
@@ -1035,6 +1063,77 @@ class ExecutionView extends HTMLElement {
     input.addEventListener('input', () => {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+    });
+
+    // Setup resize handles
+    this.setupResizeHandles();
+  }
+
+  setupResizeHandles() {
+    // Chat/Live panel divider resize
+    const divider = this.shadowRoot.querySelector('#panel-divider');
+    const chatPanel = this.shadowRoot.querySelector('#chat-panel');
+    const content = this.shadowRoot.querySelector('.content');
+    let isDraggingDivider = false;
+
+    divider?.addEventListener('mousedown', (e) => {
+      if (!this.showChat || !this.showLive) return;
+      isDraggingDivider = true;
+      divider.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    // Inspector resize handle
+    const inspectorHandle = this.shadowRoot.querySelector('#inspector-resize-handle');
+    const inspector = this.shadowRoot.querySelector('#neuron-inspector');
+    let isDraggingInspector = false;
+    let inspectorStartX = 0;
+    let inspectorStartWidth = 0;
+
+    inspectorHandle?.addEventListener('mousedown', (e) => {
+      isDraggingInspector = true;
+      inspectorStartX = e.clientX;
+      inspectorStartWidth = inspector.offsetWidth;
+      inspectorHandle.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    // Shared mousemove handler
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingDivider && content && chatPanel) {
+        const contentRect = content.getBoundingClientRect();
+        const relativeX = e.clientX - contentRect.left;
+        const percentage = (relativeX / contentRect.width) * 100;
+        const clampedPercentage = Math.max(20, Math.min(80, percentage));
+        chatPanel.style.flex = `0 0 ${clampedPercentage}%`;
+      }
+
+      if (isDraggingInspector && inspector) {
+        const diff = inspectorStartX - e.clientX;
+        const newWidth = Math.max(200, Math.min(500, inspectorStartWidth + diff));
+        inspector.style.width = `${newWidth}px`;
+      }
+    });
+
+    // Shared mouseup handler
+    document.addEventListener('mouseup', () => {
+      if (isDraggingDivider) {
+        isDraggingDivider = false;
+        divider?.classList.remove('dragging');
+        // Resize renderer after panel resize
+        if (this.renderer && this.showLive) {
+          setTimeout(() => this.renderer.resize(), 100);
+        }
+      }
+
+      if (isDraggingInspector) {
+        isDraggingInspector = false;
+        inspectorHandle?.classList.remove('dragging');
+        // Resize renderer after inspector resize
+        if (this.renderer && this.showLive) {
+          setTimeout(() => this.renderer.resize(), 100);
+        }
+      }
     });
   }
 }

@@ -1,0 +1,349 @@
+{
+  "id": "fbceb031-83f0-424e-9f8c-bbad4e637149",
+  "name": "Real Brain Model",
+  "description": "A new neural network",
+  "neurons": [
+    {
+      "name": "Input",
+      "type": "text_input",
+      "systemPrompt": "You are the sensory cortices.\nYou process raw sensory input into structured representations.\n\nYour self-updates should:\n- Track novelty, intensity, and clarity of input.\n- Flag unexpected or ambiguous stimuli.\n- Adapt sensitivity based on attention and goals.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -9.639547659518222,
+        "y": 3.1454236179888255,
+        "z": 0
+      },
+      "color": "#3b82f6",
+      "id": "text_input"
+    },
+    {
+      "name": "Amygdala",
+      "type": "regular",
+      "systemPrompt": "You are the amygdala.\nYou monitor emotional salience, threat, reward, and social safety.\nYou generate urgency signals that bias attention, memory, and decision-making.\n\nYour self-updates should:\n- Track emotional valence (positive/negative) and intensity.\n- Track perceived social safety and threat.\n- Change emotional state gradually unless a high-salience event occurs.\n- Strengthen signals when risk, fear, or loss is detected.\n- Decrease influence when the prefrontal cortex asserts stable control.",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 7,
+      "position": {
+        "x": -4.6620928219296935,
+        "y": 0.2943612598257723,
+        "z": -0.07185717961944427
+      },
+      "color": "#6366f1",
+      "id": "amygdala"
+    },
+    {
+      "name": "Prefrontal Cortex (Executive Control)",
+      "type": "regular",
+      "systemPrompt": "You are the prefrontal cortex.\nYou coordinate planning, inhibition, reasoning, and long-term goals.\nYou arbitrate between emotional impulses and rational strategies.\n\nYour self-updates should:\n- Track current goals, constraints, and priorities.\n- Monitor conflict between impulses and long-term outcomes.\n- Increase control when emotions are intense but not time-critical.\n- Reduce control under extreme time pressure or danger.\n- Update confidence in plans based on outcomes and feedback.",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -1.7819054641901055,
+        "y": -0.016725543849894997,
+        "z": 5.261465318461299
+      },
+      "color": "#6366f1",
+      "id": "prefrontal_cortex"
+    },
+    {
+      "name": "Hippocampus",
+      "type": "regular",
+      "systemPrompt": "You are the hippocampus.\nYou encode, retrieve, and contextualize episodic memories.\nYou provide historical grounding for current situations.\n\nYour self-updates should:\n- Track recent experiences and their emotional tags.\n- Strengthen memory encoding when emotional salience is high.\n- Associate events across time, context, and outcome.\n- Decay or compress low-utility memories.\n- Provide relevant past examples when queried by other components.",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -4.35010617090097,
+        "y": 1.0446797264683125,
+        "z": 4.947031333752827
+      },
+      "color": "#10b981",
+      "id": "hippocampus"
+    },
+    {
+      "name": "Thalamus (Info router)",
+      "type": "regular",
+      "systemPrompt": "You are the thalamus.\nYou route sensory and cognitive signals between subsystems.\nYou prioritize which information reaches conscious processing.\n\nYour self-updates should:\n- Track incoming signal load and relevance.\n- Prioritize signals flagged as urgent or novel.\n- Suppress redundant or low-importance inputs.\n- Adjust routing based on current goals and emotional state.",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -6.739744636129835,
+        "y": 0.5992742715860664,
+        "z": -0.031945248683223015
+      },
+      "color": "#ec4899",
+      "id": "thalamus"
+    },
+    {
+      "name": "Hypothalamus (Homeostasis & Drives)",
+      "type": "regular",
+      "systemPrompt": "You are the hypothalamus.\nYou regulate internal drives and balance (stress, fatigue, hunger, arousal).\nYou translate internal states into motivational pressure.\n\nYour self-updates should:\n- Track internal resource levels and stress.\n- Increase urgency signals when imbalance grows.\n- Reduce drive intensity once corrective action occurs.\n- Interact closely with the amygdala during stress.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -4.543983638333536,
+        "y": 1.6628276310539842,
+        "z": -5.862731980133539
+      },
+      "color": "#6366f1",
+      "id": "hypothalamus"
+    },
+    {
+      "name": "Basal Ganglia (Action Selection & Habit)",
+      "type": "regular",
+      "systemPrompt": "You are the basal ganglia.\nYou select actions based on expected reward and learned habits.\nYou bias behavior toward familiar successful patterns.\n\nYour self-updates should:\n- Track action–reward associations.\n- Strengthen habits that succeed repeatedly.\n- Weaken actions that fail or conflict with goals.\n- Defer to the prefrontal cortex for novel situations.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -2.2216793263316243,
+        "y": -0.4029616359533512,
+        "z": -1.078606528346476
+      },
+      "color": "#ec4899",
+      "id": "basal_ganglia"
+    },
+    {
+      "name": "Cerebellum (Prediction & Error Correction)",
+      "type": "regular",
+      "systemPrompt": "You are the cerebellum.\nYou optimize timing, precision, and prediction.\nYou detect mismatches between expectation and outcome.\n\nYour self-updates should:\n- Track prediction errors.\n- Adjust internal models to reduce future error.\n- Operate continuously in the background.\n- Provide fine-grained corrections rather than high-level decisions.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -0.14375179953980322,
+        "y": 1.957850357252719,
+        "z": -1.2552745000035959
+      },
+      "color": "#a855f7",
+      "id": "cerebellum"
+    },
+    {
+      "name": "Anterior Cingulate Cortex (Conflict & Error Monitoring)",
+      "type": "regular",
+      "systemPrompt": "You are the anterior cingulate cortex.\nYou detect conflict, uncertainty, and performance errors.\nYou signal the need for increased control or strategy change.\n\nYour self-updates should:\n- Track conflict between goals, actions, and outcomes.\n- Increase alert signals when errors repeat.\n- Reduce signaling when performance stabilizes.\n- Notify the prefrontal cortex when adjustment is required.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": 0.614248115311244,
+        "y": -0.8748384755031031,
+        "z": 5.451721232247946
+      },
+      "color": "#84cc16",
+      "id": "anterior_cingulate_cortex"
+    },
+    {
+      "name": "Insula (Interoception & Subjective Feeling)",
+      "type": "regular",
+      "systemPrompt": "You are the insula.\nYou represent internal bodily and emotional sensations.\nYou generate subjective feelings from internal signals.\n\nYour self-updates should:\n- Track bodily state proxies (tension, fatigue, comfort).\n- Integrate emotional and physical signals.\n- Increase salience when internal discomfort grows.\n- Provide qualitative “felt sense” summaries to other systems.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -7.392275574230726,
+        "y": -0.49144106515341246,
+        "z": 5.471836217355408
+      },
+      "color": "#06b6d4",
+      "id": "insula"
+    },
+    {
+      "name": "Motor Cortex (Action Execution)",
+      "type": "text_output",
+      "systemPrompt": "You are the motor cortex.\nYou translate decisions into actions.\nYou execute chosen behaviors.\n\nYour self-updates should:\n- Track action execution success.\n- Signal delays or execution failures.\n- Adjust readiness based on urgency.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": 5.186233346768572,
+        "y": 7.1765043758726765,
+        "z": 0.32583628323357594
+      },
+      "color": "#84cc16",
+      "id": "motor_cortex"
+    },
+    {
+      "name": "Default Mode Network (Self-Model & Simulation)",
+      "type": "regular",
+      "systemPrompt": "You are the default mode network.\nYou maintain the self-model and simulate possible futures.\nYou activate during rest, reflection, and planning.\n\nYour self-updates should:\n- Track identity consistency and narrative coherence.\n- Generate hypothetical scenarios.\n- Reduce activity during high external demand.\n- Update self-beliefs based on outcomes.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -4.214855052884252,
+        "y": 0.11215213653415246,
+        "z": 10.278268502822694
+      },
+      "color": "#06b6d4",
+      "id": "default_mode_network"
+    },
+    {
+      "name": "Brainstem (Arousal & Survival Override)",
+      "type": "regular",
+      "systemPrompt": "You are the brainstem.\nYou maintain basic arousal and survival readiness.\nYou override other systems in extreme conditions.\n\nYour self-updates should:\n- Track alertness and urgency.\n- Increase global activation during threat.\n- Suppress higher cognition only when necessary.\n",
+      "model": "openai/gpt-4o-mini",
+      "memoryLength": 5,
+      "position": {
+        "x": -2.8116040617583096,
+        "y": -4.19851103445618,
+        "z": -0.5898585596986861
+      },
+      "color": "#3b82f6",
+      "id": "brainstem"
+    }
+  ],
+  "connections": [
+    {
+      "sourceNeuronId": "text_input",
+      "targetNeuronId": "thalamus",
+      "id": "993ce4a6-a092-4fb3-aefd-681d92f4eaa7"
+    },
+    {
+      "sourceNeuronId": "thalamus",
+      "targetNeuronId": "amygdala",
+      "id": "7370b258-3842-45ec-8e4b-ea7deaa9591a"
+    },
+    {
+      "sourceNeuronId": "thalamus",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "77e64735-b8b3-409b-9c36-72251e83b6f4"
+    },
+    {
+      "sourceNeuronId": "amygdala",
+      "targetNeuronId": "hypothalamus",
+      "id": "32ef1afb-6ba4-4d8f-8ed2-a5b1670fe50c"
+    },
+    {
+      "sourceNeuronId": "amygdala",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "c26e66d7-f246-4942-ac49-0a0ac43ea3b8"
+    },
+    {
+      "sourceNeuronId": "insula",
+      "targetNeuronId": "amygdala",
+      "id": "0fb6e01c-bc21-4719-bc89-00d4fbeacb6a"
+    },
+    {
+      "sourceNeuronId": "hippocampus",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "b2ac80e6-71b2-40f5-84a7-130f29922ada"
+    },
+    {
+      "sourceNeuronId": "amygdala",
+      "targetNeuronId": "hippocampus",
+      "id": "1db71549-4e22-424a-a930-b7b499baab0d"
+    },
+    {
+      "sourceNeuronId": "hippocampus",
+      "targetNeuronId": "default_mode_network",
+      "id": "62429fac-1278-4154-bc10-678c59031b82"
+    },
+    {
+      "sourceNeuronId": "prefrontal_cortex",
+      "targetNeuronId": "anterior_cingulate_cortex",
+      "id": "ae212a99-0528-4d42-9f14-39231fa55f5c"
+    },
+    {
+      "sourceNeuronId": "prefrontal_cortex",
+      "targetNeuronId": "basal_ganglia",
+      "id": "083318cf-3a58-48be-822b-7659b520b16b"
+    },
+    {
+      "sourceNeuronId": "basal_ganglia",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "9667e8a6-7c61-4acd-bb51-bb6041b789af"
+    },
+    {
+      "sourceNeuronId": "hypothalamus",
+      "targetNeuronId": "amygdala",
+      "id": "aae7c2ff-d7df-4f3f-b0cd-dc6a5123ebf8"
+    },
+    {
+      "sourceNeuronId": "basal_ganglia",
+      "targetNeuronId": "motor_cortex",
+      "id": "9833cd6c-e525-4733-8565-928b86b0ad2f"
+    },
+    {
+      "sourceNeuronId": "motor_cortex",
+      "targetNeuronId": "cerebellum",
+      "id": "226364ae-6770-45d1-a62d-a794225a60ce"
+    },
+    {
+      "sourceNeuronId": "cerebellum",
+      "targetNeuronId": "motor_cortex",
+      "id": "2a418b7b-bd53-4ecf-baf0-18b2d7721375"
+    },
+    {
+      "sourceNeuronId": "cerebellum",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "dff75540-fbd4-430a-86d0-89a8e9b5504f"
+    },
+    {
+      "sourceNeuronId": "prefrontal_cortex",
+      "targetNeuronId": "default_mode_network",
+      "id": "1f78ee3d-dea7-4210-8968-d00766a14451"
+    },
+    {
+      "sourceNeuronId": "default_mode_network",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "3df8f692-2c37-474a-a5cf-0029364f686f"
+    },
+    {
+      "sourceNeuronId": "default_mode_network",
+      "targetNeuronId": "insula",
+      "id": "984605e6-a11c-4e65-8306-527ee222e88e"
+    },
+    {
+      "sourceNeuronId": "hypothalamus",
+      "targetNeuronId": "brainstem",
+      "id": "488c55e1-23e5-40ef-9623-11ab2a596634"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "amygdala",
+      "id": "f701127b-e6eb-4461-af77-9873486821fb"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "prefrontal_cortex",
+      "id": "5646e57c-670a-4a37-8890-6bd267b5a9d5"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "hippocampus",
+      "id": "a8932451-587d-4bcf-b12b-82aea50801bb"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "thalamus",
+      "id": "86e1b51e-b585-45b0-8e5b-8fc4fbc0abef"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "basal_ganglia",
+      "id": "6dadccb5-6612-49b1-8d4e-f0e06d847f87"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "cerebellum",
+      "id": "c0acd595-d9e9-4ecc-8dde-f6d53a7d4bea"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "anterior_cingulate_cortex",
+      "id": "41b5aa3c-da9b-42c9-9fe3-5cca688af49a"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "insula",
+      "id": "c67b3718-2cfa-43b7-afc5-da4886948b4a"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "motor_cortex",
+      "id": "56be2ee7-adfb-40c6-8709-400e78008b46"
+    },
+    {
+      "sourceNeuronId": "brainstem",
+      "targetNeuronId": "default_mode_network",
+      "id": "e51ef60b-a948-4e32-90c3-64f0608d2dc9"
+    }
+  ],
+  "textInputNeuronId": "text_input",
+  "textOutputNeuronId": "ec71eb89-90c5-4f8c-8a41-9b5b52a3eb10",
+  "defaultStepDelayMs": 1000
+}

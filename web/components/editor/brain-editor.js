@@ -16,6 +16,9 @@ class BrainEditor extends HTMLElement {
     this.saveTimeout = null;
     this.saveStatus = 'saved'; // 'saved', 'saving', 'unsaved'
     this.lastSavedBrain = null;
+    this.showGraph = true;
+    this.showJson = false;
+    this.jsonError = null;
   }
 
   connectedCallback() {
@@ -91,6 +94,124 @@ class BrainEditor extends HTMLElement {
     const panel = this.shadowRoot.querySelector('neuron-panel');
     if (panel) {
       panel.setBrain(this.brain);
+    }
+
+    // Update JSON editor (only if not focused to avoid cursor jumping)
+    const jsonEditor = this.shadowRoot.querySelector('#json-editor');
+    if (jsonEditor && jsonEditor !== document.activeElement) {
+      this.updateJsonEditor();
+    }
+  }
+
+  updateJsonEditor() {
+    const jsonEditor = this.shadowRoot.querySelector('#json-editor');
+    if (!jsonEditor || !this.brain) return;
+
+    // Create a clean copy without internal fields
+    const brainForJson = {
+      id: this.brain.id,
+      name: this.brain.name,
+      description: this.brain.description,
+      neurons: this.brain.neurons,
+      connections: this.brain.connections,
+      textInputNeuronId: this.brain.textInputNeuronId,
+      textOutputNeuronId: this.brain.textOutputNeuronId,
+      pictureInputNeuronId: this.brain.pictureInputNeuronId,
+      defaultStepDelayMs: this.brain.defaultStepDelayMs,
+    };
+
+    jsonEditor.value = JSON.stringify(brainForJson, null, 2);
+    this.jsonError = null;
+    this.updateJsonError();
+  }
+
+  updateJsonError() {
+    const errorEl = this.shadowRoot.querySelector('#json-error');
+    if (errorEl) {
+      if (this.jsonError) {
+        errorEl.textContent = this.jsonError;
+        errorEl.style.display = 'block';
+      } else {
+        errorEl.style.display = 'none';
+      }
+    }
+  }
+
+  onJsonChange(e) {
+    const jsonStr = e.target.value;
+    try {
+      const parsed = JSON.parse(jsonStr);
+      this.jsonError = null;
+
+      // Update brain with parsed JSON (preserve id)
+      this.brain = {
+        ...parsed,
+        id: this.brain.id, // Never change ID from JSON
+      };
+
+      // Update the 3D view and panel
+      const canvas = this.shadowRoot.querySelector('three-canvas');
+      if (canvas) {
+        canvas.setBrain(this.brain);
+      }
+      const panel = this.shadowRoot.querySelector('neuron-panel');
+      if (panel) {
+        panel.setBrain(this.brain);
+      }
+
+      // Update name input
+      const nameInput = this.shadowRoot.querySelector('#brain-name-input');
+      if (nameInput && nameInput !== document.activeElement) {
+        nameInput.value = this.brain.name;
+      }
+
+      // Update state
+      setCurrentBrain(this.brain);
+      this.scheduleAutosave();
+    } catch (err) {
+      this.jsonError = `Invalid JSON: ${err.message}`;
+    }
+    this.updateJsonError();
+  }
+
+  toggleView(view) {
+    if (view === 'graph') {
+      this.showGraph = !this.showGraph;
+    } else if (view === 'json') {
+      this.showJson = !this.showJson;
+      // Update JSON editor content when showing
+      if (this.showJson) {
+        this.updateJsonEditor();
+      }
+    }
+    this.updateViewLayout();
+  }
+
+  updateViewLayout() {
+    const graphPanel = this.shadowRoot.querySelector('#graph-panel');
+    const jsonPanel = this.shadowRoot.querySelector('#json-panel');
+    const graphToggle = this.shadowRoot.querySelector('#graph-toggle');
+    const jsonToggle = this.shadowRoot.querySelector('#json-toggle');
+
+    if (graphPanel) {
+      graphPanel.classList.toggle('panel--hidden', !this.showGraph);
+    }
+    if (jsonPanel) {
+      jsonPanel.classList.toggle('panel--hidden', !this.showJson);
+      // Fill the entire content area when JSON is the only visible panel
+      jsonPanel.classList.toggle('json-panel--full', this.showJson && !this.showGraph);
+    }
+    if (graphToggle) {
+      graphToggle.classList.toggle('toggle-btn--active', this.showGraph);
+    }
+    if (jsonToggle) {
+      jsonToggle.classList.toggle('toggle-btn--active', this.showJson);
+    }
+
+    // Trigger resize on canvas after layout change
+    const canvas = this.shadowRoot.querySelector('three-canvas');
+    if (canvas && this.showGraph) {
+      setTimeout(() => canvas.handleResize(), 100);
     }
   }
 
@@ -348,10 +469,55 @@ class BrainEditor extends HTMLElement {
           font-size: var(--text-sm);
         }
 
+        .view-toggles {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
+          padding: var(--space-1);
+          background-color: var(--color-bg-tertiary);
+          border-radius: var(--radius-md);
+        }
+
+        .toggle-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-2);
+          padding: var(--space-2) var(--space-3);
+          font-size: var(--text-sm);
+          font-weight: 500;
+          color: var(--color-text-secondary);
+          background-color: transparent;
+          border: none;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .toggle-btn:hover {
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-elevated);
+        }
+
+        .toggle-btn--active {
+          color: var(--color-primary);
+          background-color: var(--color-bg-secondary);
+        }
+
         .editor-content {
           display: flex;
           flex: 1;
           overflow: hidden;
+        }
+
+        .panel--hidden {
+          display: none !important;
+        }
+
+        .graph-panel {
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+          min-width: 0;
         }
 
         .editor-canvas {
@@ -359,11 +525,93 @@ class BrainEditor extends HTMLElement {
           position: relative;
         }
 
-        .editor-panel {
+        .neuron-panel-container {
           width: var(--panel-width);
           border-left: 1px solid var(--color-border);
           background-color: var(--color-bg-secondary);
           position: relative;
+          flex-shrink: 0;
+        }
+
+        .json-panel {
+          display: flex;
+          flex-direction: column;
+          background-color: var(--color-bg-secondary);
+          width: 400px;
+          border-left: 1px solid var(--color-border);
+          position: relative;
+          flex-shrink: 0;
+        }
+
+        .json-panel.json-panel--full {
+          flex: 1;
+          width: auto;
+        }
+
+        .json-resize-handle {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          cursor: ew-resize;
+          background-color: transparent;
+          transition: background-color var(--transition-fast);
+          z-index: 10;
+        }
+
+        .json-resize-handle:hover,
+        .json-resize-handle.dragging {
+          background-color: var(--color-primary);
+        }
+
+        .json-panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--space-3) var(--space-4);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .json-panel-title {
+          font-size: var(--text-sm);
+          font-weight: 600;
+          color: var(--color-text-secondary);
+        }
+
+        .json-editor-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .json-editor {
+          flex: 1;
+          width: 100%;
+          padding: var(--space-4);
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          font-size: var(--text-sm);
+          line-height: 1.6;
+          color: var(--color-text-primary);
+          background-color: var(--color-bg-primary);
+          border: none;
+          resize: none;
+          outline: none;
+          tab-size: 2;
+        }
+
+        .json-editor:focus {
+          outline: none;
+        }
+
+        .json-error {
+          display: none;
+          padding: var(--space-3) var(--space-4);
+          font-size: var(--text-xs);
+          color: var(--color-error);
+          background-color: rgba(239, 68, 68, 0.1);
+          border-top: 1px solid var(--color-error);
         }
 
         .panel-resize-handle {
@@ -418,6 +666,24 @@ class BrainEditor extends HTMLElement {
                 <circle cx="12" cy="12" r="4"/>
               </svg>
             </div>
+
+            <div class="view-toggles">
+              <button class="toggle-btn toggle-btn--active" id="graph-toggle">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                3D
+              </button>
+              <button class="toggle-btn" id="json-toggle">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="4 7 4 4 20 4 20 7"/>
+                  <line x1="9" y1="20" x2="15" y2="20"/>
+                  <line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+                JSON
+              </button>
+            </div>
           </div>
 
           <div class="editor-header__center">
@@ -459,22 +725,40 @@ class BrainEditor extends HTMLElement {
           </div>
         </header>
         <div class="editor-content">
-          <div class="editor-canvas">
-            <three-canvas></three-canvas>
-            <div class="toolbar">
-              <button class="btn btn--secondary" id="add-neuron-btn">+ Add Neuron</button>
-              <span class="toolbar__divider"></span>
-              <button class="btn btn--ghost btn--icon" id="reset-camera-btn" title="Reset Camera">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-              </button>
+          <div class="graph-panel" id="graph-panel">
+            <div class="editor-canvas">
+              <three-canvas></three-canvas>
+              <div class="toolbar">
+                <button class="btn btn--secondary" id="add-neuron-btn">+ Add Neuron</button>
+                <span class="toolbar__divider"></span>
+                <button class="btn btn--ghost btn--icon" id="reset-camera-btn" title="Reset Camera">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                  </svg>
+                </button>
+              </div>
             </div>
+            <aside class="neuron-panel-container" id="neuron-panel-container">
+              <div class="panel-resize-handle" id="resize-handle"></div>
+              <neuron-panel></neuron-panel>
+            </aside>
           </div>
-          <aside class="editor-panel" id="editor-panel">
-            <div class="panel-resize-handle" id="resize-handle"></div>
-            <neuron-panel></neuron-panel>
+
+          <aside class="json-panel panel--hidden" id="json-panel">
+            <div class="json-resize-handle" id="json-resize-handle"></div>
+            <div class="json-panel-header">
+              <span class="json-panel-title">Brain Configuration</span>
+            </div>
+            <div class="json-editor-container">
+              <textarea
+                class="json-editor"
+                id="json-editor"
+                placeholder="Loading brain configuration..."
+                spellcheck="false"
+              ></textarea>
+              <div class="json-error" id="json-error"></div>
+            </div>
           </aside>
         </div>
       </div>
@@ -512,12 +796,27 @@ class BrainEditor extends HTMLElement {
       }
     });
 
+    // View toggle listeners
+    this.shadowRoot.getElementById('graph-toggle').addEventListener('click', () => {
+      this.toggleView('graph');
+    });
+
+    this.shadowRoot.getElementById('json-toggle').addEventListener('click', () => {
+      this.toggleView('json');
+    });
+
+    // JSON editor change listener
+    this.shadowRoot.getElementById('json-editor').addEventListener('input', (e) => {
+      this.onJsonChange(e);
+    });
+
     // Panel resize functionality
     this.setupPanelResize();
+    this.setupJsonPanelResize();
   }
 
   setupPanelResize() {
-    const panel = this.shadowRoot.getElementById('editor-panel');
+    const panel = this.shadowRoot.getElementById('neuron-panel-container');
     const handle = this.shadowRoot.getElementById('resize-handle');
     let isResizing = false;
     let startX = 0;
@@ -535,14 +834,70 @@ class BrainEditor extends HTMLElement {
       if (!isResizing) return;
 
       const diff = startX - e.clientX;
-      const newWidth = Math.max(280, Math.min(600, startWidth + diff));
+      const newWidth = Math.max(280, startWidth + diff);
       panel.style.width = `${newWidth}px`;
+
+      // Trigger Three.js canvas resize
+      const canvas = this.shadowRoot.querySelector('three-canvas');
+      if (canvas) {
+        canvas.handleResize();
+      }
     });
 
     document.addEventListener('mouseup', () => {
       if (isResizing) {
         isResizing = false;
         handle.classList.remove('dragging');
+
+        // Final resize trigger
+        const canvas = this.shadowRoot.querySelector('three-canvas');
+        if (canvas && this.showGraph) {
+          setTimeout(() => canvas.handleResize(), 100);
+        }
+      }
+    });
+  }
+
+  setupJsonPanelResize() {
+    const handle = this.shadowRoot.getElementById('json-resize-handle');
+    const jsonPanel = this.shadowRoot.getElementById('json-panel');
+    let isDragging = false;
+    let startX = 0;
+    let startWidth = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+      if (!this.showJson || !this.showGraph) return; // Only resize when both panels visible
+      isDragging = true;
+      startX = e.clientX;
+      startWidth = jsonPanel.offsetWidth;
+      handle.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging || !jsonPanel) return;
+
+      const diff = startX - e.clientX;
+      const newWidth = Math.max(200, startWidth + diff);
+      jsonPanel.style.width = `${newWidth}px`;
+
+      // Trigger Three.js canvas resize
+      const canvas = this.shadowRoot.querySelector('three-canvas');
+      if (canvas) {
+        canvas.handleResize();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        handle.classList.remove('dragging');
+
+        // Final resize trigger
+        const canvas = this.shadowRoot.querySelector('three-canvas');
+        if (canvas && this.showGraph) {
+          setTimeout(() => canvas.handleResize(), 100);
+        }
       }
     });
   }

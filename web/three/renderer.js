@@ -1,7 +1,7 @@
 // Three.js renderer for brain visualization
 
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export class Renderer {
   constructor(canvas, options = {}) {
@@ -98,13 +98,13 @@ export class Renderer {
     this.scene.add(directionalLight);
 
     // Event listeners
-    this.canvas.addEventListener('click', this._boundOnClick);
-    this.canvas.addEventListener('mousemove', this._boundOnMouseMove);
-    this.canvas.addEventListener('mousedown', this._boundOnMouseDown);
-    this.canvas.addEventListener('mouseup', this._boundOnMouseUp);
-    window.addEventListener('keydown', this._boundOnKeyDown);
-    window.addEventListener('keyup', this._boundOnKeyUp);
-    window.addEventListener('resize', this._boundOnResize);
+    this.canvas.addEventListener("click", this._boundOnClick);
+    this.canvas.addEventListener("mousemove", this._boundOnMouseMove);
+    this.canvas.addEventListener("mousedown", this._boundOnMouseDown);
+    this.canvas.addEventListener("mouseup", this._boundOnMouseUp);
+    window.addEventListener("keydown", this._boundOnKeyDown);
+    window.addEventListener("keyup", this._boundOnKeyUp);
+    window.addEventListener("resize", this._boundOnResize);
 
     // Create transform gizmo
     if (this.enableEditing) {
@@ -132,11 +132,11 @@ export class Renderer {
       arrowLength,
       0xff4444,
       arrowHeadLength,
-      arrowHeadWidth
+      arrowHeadWidth,
     );
-    xArrow.userData.axis = 'x';
+    xArrow.userData.axis = "x";
     this.gizmoGroup.add(xArrow);
-    this.gizmoArrows.set('x', xArrow);
+    this.gizmoArrows.set("x", xArrow);
 
     // Y axis (green)
     const yArrow = this.createArrowHelper(
@@ -145,11 +145,11 @@ export class Renderer {
       arrowLength,
       0x44ff44,
       arrowHeadLength,
-      arrowHeadWidth
+      arrowHeadWidth,
     );
-    yArrow.userData.axis = 'y';
+    yArrow.userData.axis = "y";
     this.gizmoGroup.add(yArrow);
-    this.gizmoArrows.set('y', yArrow);
+    this.gizmoArrows.set("y", yArrow);
 
     // Z axis (blue)
     const zArrow = this.createArrowHelper(
@@ -158,11 +158,11 @@ export class Renderer {
       arrowLength,
       0x4444ff,
       arrowHeadLength,
-      arrowHeadWidth
+      arrowHeadWidth,
     );
-    zArrow.userData.axis = 'z';
+    zArrow.userData.axis = "z";
     this.gizmoGroup.add(zArrow);
-    this.gizmoArrows.set('z', zArrow);
+    this.gizmoArrows.set("z", zArrow);
 
     this.scene.add(this.gizmoGroup);
   }
@@ -172,10 +172,17 @@ export class Renderer {
     const group = new THREE.Group();
 
     // Shaft
-    const shaftGeometry = new THREE.CylinderGeometry(0.04, 0.04, length - headLength, 8);
+    const shaftGeometry = new THREE.CylinderGeometry(
+      0.04,
+      0.04,
+      length - headLength,
+      8,
+    );
     const shaftMaterial = new THREE.MeshBasicMaterial({ color });
     const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-    shaft.position.copy(direction.clone().multiplyScalar((length - headLength) / 2));
+    shaft.position.copy(
+      direction.clone().multiplyScalar((length - headLength) / 2),
+    );
     shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
     group.add(shaft);
 
@@ -183,7 +190,9 @@ export class Renderer {
     const headGeometry = new THREE.ConeGeometry(headWidth, headLength, 8);
     const headMaterial = new THREE.MeshBasicMaterial({ color });
     const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.copy(direction.clone().multiplyScalar(length - headLength / 2));
+    head.position.copy(
+      direction.clone().multiplyScalar(length - headLength / 2),
+    );
     head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
     group.add(head);
 
@@ -197,12 +206,12 @@ export class Renderer {
     if (!this.gizmoGroup || !this.enableEditing) return;
 
     if (this.selectedNeuronId) {
-      const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+      const neuron = this.neurons.find((n) => n.id === this.selectedNeuronId);
       if (neuron) {
         this.gizmoGroup.position.set(
           neuron.position.x,
           neuron.position.y,
-          neuron.position.z
+          neuron.position.z,
         );
         this.gizmoGroup.visible = true;
         return;
@@ -290,7 +299,7 @@ export class Renderer {
     mesh.position.set(neuron.position.x, neuron.position.y, neuron.position.z);
 
     // Update color
-    const color = new THREE.Color(neuron.color || '#6366f1');
+    const color = new THREE.Color(neuron.color || "#6366f1");
     mesh.material.color.copy(color);
 
     // Update label sprite position and text if needed
@@ -299,11 +308,11 @@ export class Renderer {
       sprite.position.set(
         neuron.position.x,
         neuron.position.y + 0.9,
-        neuron.position.z
+        neuron.position.z,
       );
 
       // Check if name changed by comparing with stored name
-      const storedNeuron = this.neurons.find(n => n.id === neuron.id);
+      const storedNeuron = this.neurons.find((n) => n.id === neuron.id);
       if (storedNeuron && storedNeuron.name !== neuron.name) {
         // Name changed - update the sprite
         this.scene.remove(sprite);
@@ -314,7 +323,7 @@ export class Renderer {
         newSprite.position.set(
           neuron.position.x,
           neuron.position.y + 0.9,
-          neuron.position.z
+          neuron.position.z,
         );
         this.scene.add(newSprite);
         this.labelSprites.set(neuron.id, newSprite);
@@ -322,7 +331,7 @@ export class Renderer {
     }
 
     // Update the neuron in our array
-    const index = this.neurons.findIndex(n => n.id === neuron.id);
+    const index = this.neurons.findIndex((n) => n.id === neuron.id);
     if (index >= 0) {
       this.neurons[index] = neuron;
     }
@@ -332,7 +341,7 @@ export class Renderer {
    * Set neuron status (for live view)
    */
   setNeuronStatus(neuronId, status) {
-    const neuron = this.neurons.find(n => n.id === neuronId);
+    const neuron = this.neurons.find((n) => n.id === neuronId);
     if (neuron) {
       neuron.status = status;
     }
@@ -367,7 +376,7 @@ export class Renderer {
     this.sharedGeometry = new THREE.SphereGeometry(0.5, 32, 24);
 
     for (const neuron of this.neurons) {
-      const color = new THREE.Color(neuron.color || '#6366f1');
+      const color = new THREE.Color(neuron.color || "#6366f1");
       const material = new THREE.MeshStandardMaterial({
         color,
         roughness: 0.4,
@@ -376,7 +385,11 @@ export class Renderer {
       });
 
       const mesh = new THREE.Mesh(this.sharedGeometry, material);
-      mesh.position.set(neuron.position.x, neuron.position.y, neuron.position.z);
+      mesh.position.set(
+        neuron.position.x,
+        neuron.position.y,
+        neuron.position.z,
+      );
       mesh.userData.neuronId = neuron.id;
 
       this.scene.add(mesh);
@@ -387,7 +400,7 @@ export class Renderer {
       sprite.position.set(
         neuron.position.x,
         neuron.position.y + 0.9,
-        neuron.position.z
+        neuron.position.z,
       );
       this.scene.add(sprite);
       this.labelSprites.set(neuron.id, sprite);
@@ -407,7 +420,7 @@ export class Renderer {
       if (obj.geometry) obj.geometry.dispose();
       if (obj.material) {
         if (Array.isArray(obj.material)) {
-          obj.material.forEach(m => m.dispose());
+          obj.material.forEach((m) => m.dispose());
         } else {
           obj.material.dispose();
         }
@@ -418,25 +431,33 @@ export class Renderer {
     const connectionColor = 0x6b7280; // Gray color
 
     for (const conn of this.connections) {
-      const sourceNeuron = this.neurons.find(n => n.id === conn.sourceNeuronId);
-      const targetNeuron = this.neurons.find(n => n.id === conn.targetNeuronId);
+      const sourceNeuron = this.neurons.find(
+        (n) => n.id === conn.sourceNeuronId,
+      );
+      const targetNeuron = this.neurons.find(
+        (n) => n.id === conn.targetNeuronId,
+      );
 
       if (!sourceNeuron || !targetNeuron) continue;
 
       const sourcePos = new THREE.Vector3(
         sourceNeuron.position.x,
         sourceNeuron.position.y,
-        sourceNeuron.position.z
+        sourceNeuron.position.z,
       );
       const targetPos = new THREE.Vector3(
         targetNeuron.position.x,
         targetNeuron.position.y,
-        targetNeuron.position.z
+        targetNeuron.position.z,
       );
 
       // Calculate direction and offset from sphere surface
-      const direction = new THREE.Vector3().subVectors(targetPos, sourcePos).normalize();
-      const start = sourcePos.clone().add(direction.clone().multiplyScalar(0.55));
+      const direction = new THREE.Vector3()
+        .subVectors(targetPos, sourcePos)
+        .normalize();
+      const start = sourcePos
+        .clone()
+        .add(direction.clone().multiplyScalar(0.55));
       const end = targetPos.clone().sub(direction.clone().multiplyScalar(0.55));
 
       // Create thick tube for the main line
@@ -478,10 +499,10 @@ export class Renderer {
    * Create a billboard sprite with text
    */
   createLabelSprite(text) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
 
-    const font = '24px sans-serif';
+    const font = "16px sans-serif";
     const padding = 8;
 
     ctx.font = font;
@@ -494,9 +515,9 @@ export class Renderer {
 
     ctx.clearRect(0, 0, width, height);
     ctx.font = font;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText(text, width / 2, height / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -527,7 +548,7 @@ export class Renderer {
 
       const material = mesh.material;
       // Reuse temp color to avoid allocations every frame
-      this._tempColor.set(neuron.color || '#6366f1');
+      this._tempColor.set(neuron.color || "#6366f1");
 
       let emissiveIntensity = 0;
 
@@ -537,9 +558,9 @@ export class Renderer {
       }
 
       // Status-based effects
-      if (neuron.status === 'processing') {
+      if (neuron.status === "processing") {
         emissiveIntensity = 0.5 + Math.sin(time * 0.01) * 0.2;
-      } else if (neuron.status === 'fired') {
+      } else if (neuron.status === "fired") {
         emissiveIntensity = 0.4;
       }
 
@@ -551,7 +572,7 @@ export class Renderer {
    * Handle keyboard down
    */
   onKeyDown(event) {
-    if (event.key === 'Shift') {
+    if (event.key === "Shift") {
       this.isShiftDown = true;
     }
   }
@@ -560,7 +581,7 @@ export class Renderer {
    * Handle keyboard up
    */
   onKeyUp(event) {
-    if (event.key === 'Shift') {
+    if (event.key === "Shift") {
       this.isShiftDown = false;
       this.pendingConnectionSource = null;
     }
@@ -580,15 +601,19 @@ export class Renderer {
       this.controls.enabled = false; // Disable orbit controls while dragging
 
       // Get the neuron's current position
-      const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+      const neuron = this.neurons.find((n) => n.id === this.selectedNeuronId);
       if (neuron) {
-        this.dragStartPosition.set(neuron.position.x, neuron.position.y, neuron.position.z);
+        this.dragStartPosition.set(
+          neuron.position.x,
+          neuron.position.y,
+          neuron.position.z,
+        );
 
         // Set up drag plane perpendicular to camera but containing the axis
         const axisVector = new THREE.Vector3(
-          axis === 'x' ? 1 : 0,
-          axis === 'y' ? 1 : 0,
-          axis === 'z' ? 1 : 0
+          axis === "x" ? 1 : 0,
+          axis === "y" ? 1 : 0,
+          axis === "z" ? 1 : 0,
         );
 
         // Get camera direction
@@ -596,13 +621,23 @@ export class Renderer {
         this.camera.getWorldDirection(camDir);
 
         // Create plane normal that is perpendicular to the axis and aligned with camera view
-        const planeNormal = new THREE.Vector3().crossVectors(axisVector, camDir).cross(axisVector).normalize();
+        const planeNormal = new THREE.Vector3()
+          .crossVectors(axisVector, camDir)
+          .cross(axisVector)
+          .normalize();
         if (planeNormal.length() < 0.1) {
           // If axis is parallel to camera direction, use a default perpendicular
-          planeNormal.set(axis === 'x' ? 0 : 1, axis === 'y' ? 0 : 1, axis === 'z' ? 1 : 0);
+          planeNormal.set(
+            axis === "x" ? 0 : 1,
+            axis === "y" ? 0 : 1,
+            axis === "z" ? 1 : 0,
+          );
         }
 
-        this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.dragStartPosition);
+        this.dragPlane.setFromNormalAndCoplanarPoint(
+          planeNormal,
+          this.dragStartPosition,
+        );
 
         // Get initial intersection point
         const rect = this.canvas.getBoundingClientRect();
@@ -639,7 +674,10 @@ export class Renderer {
 
     // Shift+click to create connection
     if (this.isShiftDown && this.enableEditing && neuronId) {
-      if (this.pendingConnectionSource && this.pendingConnectionSource !== neuronId) {
+      if (
+        this.pendingConnectionSource &&
+        this.pendingConnectionSource !== neuronId
+      ) {
         // Create connection from pending source to clicked neuron
         if (this.onConnectionCreate) {
           this.onConnectionCreate(this.pendingConnectionSource, neuronId);
@@ -680,22 +718,22 @@ export class Renderer {
         // Project delta onto the active axis
         let newPosition;
         switch (this.activeGizmoAxis) {
-          case 'x':
+          case "x":
             newPosition = this.dragStartPosition.clone();
             newPosition.x += delta.x;
             break;
-          case 'y':
+          case "y":
             newPosition = this.dragStartPosition.clone();
             newPosition.y += delta.y;
             break;
-          case 'z':
+          case "z":
             newPosition = this.dragStartPosition.clone();
             newPosition.z += delta.z;
             break;
         }
 
         // Update neuron position
-        const neuron = this.neurons.find(n => n.id === this.selectedNeuronId);
+        const neuron = this.neurons.find((n) => n.id === this.selectedNeuronId);
         if (neuron && newPosition) {
           neuron.position.x = newPosition.x;
           neuron.position.y = newPosition.y;
@@ -710,7 +748,11 @@ export class Renderer {
           // Update label position
           const sprite = this.labelSprites.get(this.selectedNeuronId);
           if (sprite) {
-            sprite.position.set(newPosition.x, newPosition.y + 0.9, newPosition.z);
+            sprite.position.set(
+              newPosition.x,
+              newPosition.y + 0.9,
+              newPosition.z,
+            );
           }
 
           // Update gizmo position
@@ -741,7 +783,7 @@ export class Renderer {
     if (this.enableEditing && this.gizmoGroup?.visible) {
       const gizmoAxis = this.pickGizmoAxis(event);
       if (gizmoAxis) {
-        this.canvas.style.cursor = 'grab';
+        this.canvas.style.cursor = "grab";
         return;
       }
     }
@@ -750,7 +792,7 @@ export class Renderer {
 
     if (neuronId !== this.hoveredNeuronId) {
       this.hoveredNeuronId = neuronId;
-      this.canvas.style.cursor = neuronId ? 'pointer' : 'default';
+      this.canvas.style.cursor = neuronId ? "pointer" : "default";
 
       if (this.onNeuronHover) {
         this.onNeuronHover(neuronId);
@@ -805,11 +847,15 @@ export class Renderer {
    * Focus on a specific neuron
    */
   focusNeuron(neuronId) {
-    const neuron = this.neurons.find(n => n.id === neuronId);
+    const neuron = this.neurons.find((n) => n.id === neuronId);
     if (neuron) {
       this.animateTo(
-        new THREE.Vector3(neuron.position.x, neuron.position.y, neuron.position.z),
-        5
+        new THREE.Vector3(
+          neuron.position.x,
+          neuron.position.y,
+          neuron.position.z,
+        ),
+        5,
       );
     }
   }
@@ -859,13 +905,13 @@ export class Renderer {
     this.stop();
 
     // Remove event listeners
-    this.canvas.removeEventListener('click', this._boundOnClick);
-    this.canvas.removeEventListener('mousemove', this._boundOnMouseMove);
-    this.canvas.removeEventListener('mousedown', this._boundOnMouseDown);
-    this.canvas.removeEventListener('mouseup', this._boundOnMouseUp);
-    window.removeEventListener('keydown', this._boundOnKeyDown);
-    window.removeEventListener('keyup', this._boundOnKeyUp);
-    window.removeEventListener('resize', this._boundOnResize);
+    this.canvas.removeEventListener("click", this._boundOnClick);
+    this.canvas.removeEventListener("mousemove", this._boundOnMouseMove);
+    this.canvas.removeEventListener("mousedown", this._boundOnMouseDown);
+    this.canvas.removeEventListener("mouseup", this._boundOnMouseUp);
+    window.removeEventListener("keydown", this._boundOnKeyDown);
+    window.removeEventListener("keyup", this._boundOnKeyUp);
+    window.removeEventListener("resize", this._boundOnResize);
 
     // Dispose controls
     this.controls.dispose();
@@ -902,7 +948,7 @@ export class Renderer {
       if (obj.geometry) obj.geometry.dispose();
       if (obj.material) {
         if (Array.isArray(obj.material)) {
-          obj.material.forEach(m => m.dispose());
+          obj.material.forEach((m) => m.dispose());
         } else {
           obj.material.dispose();
         }
