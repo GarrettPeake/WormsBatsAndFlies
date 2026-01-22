@@ -287,14 +287,9 @@ executions.get('/executions/:execId/stream', async (c) => {
     const doId = c.env.BRAIN_EXECUTION.idFromName(execId);
     const execStub = c.env.BRAIN_EXECUTION.get(doId);
 
-    // Create a new request with the simplified path but keep all headers
-    // This is necessary for WebSocket upgrade to work properly
-    const wsRequest = new Request('http://internal/stream', {
-      method: c.req.method,
-      headers: c.req.raw.headers,
-    });
-
     // Forward the WebSocket upgrade to the Durable Object
+    // Use the original request as the init parameter to preserve WebSocket upgrade headers
+    const wsRequest = new Request('http://internal/stream', c.req.raw);
     return execStub.fetch(wsRequest);
   } catch (error) {
     console.error('WebSocket stream error:', error);
