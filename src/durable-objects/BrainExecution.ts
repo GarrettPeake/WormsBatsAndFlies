@@ -83,9 +83,26 @@ export class BrainExecution implements DurableObject {
       return path === '/init' ? this.handleInit(request) : this.handleInitSync(request);
     }
 
-    // For all other endpoints, extract execution ID from the DO's name
+    // For all other endpoints, extract execution ID from the DO's name or URL path
     // The DO is created with idFromName(execId), so we can get it from state.id.name
-    const execId = this.state.id.name ?? '';
+    // For WebSocket streams, the execId is also included in the URL path as a fallback
+    let execId = this.state.id.name ?? '';
+
+    // Handle WebSocket stream with execId in path: /stream/:execId
+    if (path.startsWith('/stream/')) {
+      const pathExecId = path.substring('/stream/'.length);
+      if (pathExecId) {
+        execId = pathExecId;
+      }
+      // WebSocket upgrade
+      if (request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+        return this.handleWebSocket(request, execId);
+      }
+      return new Response(
+        JSON.stringify({ error: 'WebSocket upgrade required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!execId) {
       return new Response(
@@ -96,11 +113,14 @@ export class BrainExecution implements DurableObject {
 
     switch (path) {
       case '/stream':
-        // WebSocket upgrade
-        if (request.headers.get('Upgrade') === 'websocket') {
+        // Legacy path without execId - use state.id.name
+        if (request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
           return this.handleWebSocket(request, execId);
         }
-        return new Response('WebSocket upgrade required', { status: 400 });
+        return new Response(
+          JSON.stringify({ error: 'WebSocket upgrade required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
       case '/pause':
         return this.handlePause(execId);
       case '/resume':

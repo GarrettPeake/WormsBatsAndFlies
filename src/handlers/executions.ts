@@ -288,8 +288,12 @@ executions.get('/executions/:execId/stream', async (c) => {
     const execStub = c.env.BRAIN_EXECUTION.get(doId);
 
     // Forward the WebSocket upgrade to the Durable Object
-    // Use the original request as the init parameter to preserve WebSocket upgrade headers
-    const wsRequest = new Request('http://internal/stream', c.req.raw);
+    // Include execId in the URL path for reliable ID extraction in the DO
+    // Explicitly copy headers to preserve WebSocket upgrade headers (Upgrade, Connection, Sec-WebSocket-*)
+    const wsRequest = new Request(`http://internal/stream/${execId}`, {
+      method: c.req.method,
+      headers: c.req.raw.headers,
+    });
     return execStub.fetch(wsRequest);
   } catch (error) {
     console.error('WebSocket stream error:', error);
