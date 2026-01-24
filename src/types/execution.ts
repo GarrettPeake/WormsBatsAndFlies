@@ -1,5 +1,7 @@
 // Execution runtime models
 
+import type { Brain } from './brain';
+
 export type ExecutionStatus = 'initializing' | 'running' | 'paused' | 'completed';
 
 export type NeuronStatus = 'idle' | 'queued' | 'processing' | 'fired' | 'error';
@@ -57,6 +59,12 @@ export interface BrainExecution {
   stepHistory: StepRecord[];
   startedAt: string;
   pausedAt?: string;
+  /**
+   * Immutable snapshot of the brain configuration at execution start time.
+   * This ensures the execution uses a consistent brain configuration even if
+   * the original brain is modified during execution.
+   */
+  brainSnapshot: Brain;
 }
 
 // WebSocket message types

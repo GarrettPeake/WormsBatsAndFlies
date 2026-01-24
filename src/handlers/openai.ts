@@ -59,10 +59,9 @@ openai.post('/chat/completions', async (c) => {
       );
     }
 
-    // Create execution
+    // Create execution with brain snapshot
     const executionDAO = new ExecutionDAO(c.env.EXECUTIONS_KV);
-    const neuronIds = brain.neurons.map(n => n.id);
-    const execution = await executionDAO.create(brain.id, neuronIds);
+    const execution = await executionDAO.create(brain);
 
     // Get Durable Object for this execution
     const execId = c.env.BRAIN_EXECUTION.idFromName(execution.id);
@@ -80,14 +79,13 @@ openai.post('/chat/completions', async (c) => {
       // Start execution asynchronously
       (async () => {
         try {
-          // Initialize and run execution
+          // Initialize and run execution (brain snapshot is embedded in execution)
           const initResponse = await execStub.fetch(
             new Request('http://internal/init-sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 execution,
-                brain,
                 initialInput: lastUserMessage.content,
                 maxSteps,
                 stream: true,
@@ -159,14 +157,13 @@ openai.post('/chat/completions', async (c) => {
         },
       });
     } else {
-      // Non-streaming response
+      // Non-streaming response (brain snapshot is embedded in execution)
       const initResponse = await execStub.fetch(
         new Request('http://internal/init-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             execution,
-            brain,
             initialInput: lastUserMessage.content,
             maxSteps,
             stream: false,

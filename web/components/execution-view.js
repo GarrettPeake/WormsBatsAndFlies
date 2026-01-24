@@ -56,6 +56,7 @@ class ExecutionView extends HTMLElement {
     if (!brainId) return;
 
     try {
+      // Load the live brain first (for reference and when no execution is loaded)
       this.brain = await api.getBrain(brainId);
       this.updateHeader();
 
@@ -72,6 +73,14 @@ class ExecutionView extends HTMLElement {
   async loadExecution(execId) {
     try {
       this.execution = await api.getExecution(execId);
+
+      // Use the brain snapshot from the execution for rendering
+      // This ensures the visualization matches what the execution is actually using
+      if (this.execution.brainSnapshot) {
+        this.brain = this.execution.brainSnapshot;
+        this.updateHeader();
+      }
+
       this.updateControls();
       this.connectWebSocket();
 
@@ -236,8 +245,20 @@ class ExecutionView extends HTMLElement {
 
   updateHeader() {
     const title = this.shadowRoot.querySelector('#header-title');
+    const snapshotBadge = this.shadowRoot.querySelector('#snapshot-badge');
+
     if (title && this.brain) {
       title.textContent = this.brain.name;
+    }
+
+    // Show snapshot indicator when viewing an execution
+    if (snapshotBadge && this.execution?.brainSnapshot) {
+      const snapshotTime = new Date(this.execution.startedAt).toLocaleString();
+      snapshotBadge.textContent = `Snapshot from ${snapshotTime}`;
+      snapshotBadge.style.display = 'inline-flex';
+      snapshotBadge.title = 'This execution uses an immutable snapshot of the brain configuration captured when the execution started';
+    } else if (snapshotBadge) {
+      snapshotBadge.style.display = 'none';
     }
   }
 
@@ -581,6 +602,21 @@ class ExecutionView extends HTMLElement {
           margin-left: var(--space-4);
           padding-left: var(--space-4);
           border-left: 1px solid var(--color-border);
+        }
+
+        .snapshot-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          margin-left: var(--space-3);
+          padding: var(--space-1) var(--space-3);
+          font-size: var(--text-xs);
+          font-weight: 500;
+          color: var(--color-warning);
+          background-color: rgba(245, 158, 11, 0.1);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          border-radius: var(--radius-full);
+          cursor: help;
         }
 
         .header__right {
@@ -930,6 +966,7 @@ class ExecutionView extends HTMLElement {
               <span>WormsBatsAndFlies</span>
             </div>
             <span class="header__title" id="header-title">Loading...</span>
+            <span class="snapshot-badge" id="snapshot-badge" style="display: none;">Snapshot</span>
           </div>
           <div class="header__right">
             <div class="view-toggles">

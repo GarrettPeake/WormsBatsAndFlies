@@ -32,25 +32,24 @@ executions.post('/brains/:id/execute', async (c) => {
       );
     }
 
-    // Create execution state
+    // Create execution state with brain snapshot
     const executionDAO = new ExecutionDAO(c.env.EXECUTIONS_KV);
-    const neuronIds = brain.neurons.map(n => n.id);
-    const execution = await executionDAO.create(brainId, neuronIds);
+    const execution = await executionDAO.create(brain);
 
     // Get or create Durable Object for this execution
     const execId = c.env.BRAIN_EXECUTION.idFromName(execution.id);
     const execStub = c.env.BRAIN_EXECUTION.get(execId);
 
     // Initialize the execution in the Durable Object
+    // The brain snapshot is now embedded in the execution state
     const initResponse = await execStub.fetch(
       new Request('http://internal/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           execution,
-          brain,
           initialInput: body.initialInput,
-          stepDelayMs: body.stepDelayMs ?? brain.defaultStepDelayMs,
+          stepDelayMs: body.stepDelayMs ?? execution.brainSnapshot.defaultStepDelayMs,
         }),
       })
     );

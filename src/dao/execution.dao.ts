@@ -1,6 +1,6 @@
 // Execution state persistence with KV storage
 
-import type { BrainExecution, NeuronState } from '../types';
+import type { BrainExecution, NeuronState, Brain } from '../types';
 import { generateId } from '../utils/id';
 
 const EXECUTION_PREFIX = 'execution:';
@@ -44,17 +44,21 @@ export class ExecutionDAO {
   }
 
   /**
-   * Create a new execution
+   * Create a new execution with a snapshot of the brain configuration
+   * @param brain The brain configuration to snapshot (will be stored immutably with the execution)
    */
-  async create(brainId: string, neuronIds: string[]): Promise<BrainExecution> {
+  async create(brain: Brain): Promise<BrainExecution> {
     const id = generateId();
     const now = new Date().toISOString();
 
-    // Initialize neuron states
+    // Create a deep copy of the brain to ensure immutability
+    const brainSnapshot: Brain = JSON.parse(JSON.stringify(brain));
+
+    // Initialize neuron states from the snapshot
     const neuronStates: Record<string, NeuronState> = {};
-    for (const neuronId of neuronIds) {
-      neuronStates[neuronId] = {
-        neuronId,
+    for (const neuron of brainSnapshot.neurons) {
+      neuronStates[neuron.id] = {
+        neuronId: neuron.id,
         status: 'idle',
         memory: [],
         inputQueue: [],
@@ -66,12 +70,13 @@ export class ExecutionDAO {
 
     const execution: BrainExecution = {
       id,
-      brainId,
+      brainId: brain.id,
       status: 'initializing',
       currentStep: 0,
       neuronStates,
       stepHistory: [],
       startedAt: now,
+      brainSnapshot,
     };
 
     // Save execution
