@@ -183,7 +183,9 @@ class ExecutionView extends HTMLElement {
     });
 
     this.ws.on('execution_fizzled', (data) => {
-      if (this.execution) this.execution.status = 'completed';
+      // Keep status as 'paused' instead of 'completed' so we can continue the conversation
+      // The execution is ready to receive more input and will resume when new input arrives
+      if (this.execution) this.execution.status = 'paused';
       this.isLoading = false;
       this.updateControls();
       this.updateInputState();

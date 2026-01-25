@@ -504,6 +504,16 @@ export class BrainExecution implements DurableObject {
     const body = await request.json() as { content: string; type: 'text' | 'image' };
     this.queueUserInput(body.content, body.type);
 
+    // Auto-resume execution if it's paused (e.g., after a fizzle)
+    // This allows users to continue the conversation without manually resuming
+    if (this.execution.status === 'paused') {
+      this.execution.status = 'running';
+      delete this.execution.pausedAt;
+      await this.persistState();
+      this.broadcast({ type: 'execution_resumed', data: { step: this.execution.currentStep } });
+      this.startExecutionLoop();
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
